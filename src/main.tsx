@@ -1,7 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { SessionSnapshot, StatsApiConfigStatus } from "./types";
+import { ThemeProvider, useTheme, type Theme } from "./context/ThemeContext";
 import "./styles.css";
+
+const THEMES: { id: Theme; label: string; color: string }[] = [
+  { id: "modern",    label: "Modern",    color: "rgb(145,70,255)"  },
+  { id: "terminal",  label: "Terminal",  color: "rgb(51,255,51)"   },
+  { id: "amber",     label: "Amber",     color: "rgb(255,176,0)"   },
+  { id: "cyberwave", label: "Cyberwave", color: "rgb(0,240,255)"   },
+  { id: "glass",     label: "Glass",     color: "rgb(56,189,248)"  },
+  { id: "crimson",   label: "Crimson",   color: "rgb(220,20,60)"   },
+  { id: "orange",    label: "Orange",    color: "rgb(255,100,0)"   },
+  { id: "ocean",     label: "Ocean",     color: "rgb(0,140,255)"   },
+];
+
+function ThemeSwitcher() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <div className="theme-switcher" title="Switch theme">
+      {THEMES.map((t) => (
+        <button
+          key={t.id}
+          className={`theme-swatch ${theme === t.id ? "active" : ""}`}
+          style={{ backgroundColor: t.color }}
+          title={t.label}
+          onClick={() => setTheme(t.id)}
+        />
+      ))}
+    </div>
+  );
+}
 
 const API_BASE = import.meta.env.VITE_SESSION_API_URL ?? "";
 
@@ -276,9 +305,12 @@ function ControlView({ snapshot }: { snapshot: SessionSnapshot }) {
             Track wins, losses, streaks, and match stats from Rocket League&apos;s official Stats API.
           </p>
         </div>
-        <div className={`connection-pill connection-${snapshot.connection}`}>
-          <span className="dot" />
-          <span>{connectionLabel(snapshot.connection)}</span>
+        <div className="hero-right">
+          <div className={`connection-pill connection-${snapshot.connection}`}>
+            <span className="dot" />
+            <span>{connectionLabel(snapshot.connection)}</span>
+          </div>
+          <ThemeSwitcher />
         </div>
       </header>
 
@@ -360,4 +392,8 @@ function App() {
   return overlay ? <OverlayView snapshot={snapshot} /> : <ControlView snapshot={snapshot} />;
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+);
