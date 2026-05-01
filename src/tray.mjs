@@ -1,14 +1,11 @@
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, copyFileSync } from "node:fs";
-
-// systray is CJS; createRequire gives reliable interop under Bun's ESM runtime
-const _require = createRequire(import.meta.url);
-const SysTray = _require("systray").default ?? _require("systray");
+import { existsSync, mkdirSync, copyFileSync, appendFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
 const SESSION_URL = "http://127.0.0.1:49410";
+const LOG_FILE = join(homedir(), "rocket-session-tray.log");
 
 const ICON_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIDSURBVFhH7Za/S0JRFMf9D9pUxEQkxSyagoiIQAiKKIggGoJqiQiKQBoc2toaHNpahBYb+w/Epa3RrUXaampU0xNfQbvvnPvjvVfU4oXP4vPc+7nnnnvei0zECvSfRPgPf81YILRAcSZH63NZD/w/fggkgEXvt1P0dhandikq+LiI0sNOkvbmp0SsCV8C2XSeHneTYkEb9f0kLU3nxFwcpwB2/Xqq37ELZORwwZ4NqwDOdThZt0nO0a9vCQlgkzAKzGbynp37ERiMZlkIIBOm4zAK8DP3LUAt+qzILDwfJcQaRgE19VKgQV1Nmjv11kjBdBTHixmxllYAV4kHuwTalSr1HQJPBzILQiCWKAzOjAe7BNQM9Gry+RDUllUA144HeQVcQy84hN8IIYAuxoOCCNh2Dy5XvHUgBM6XMyLILaCvfB3Xq2m7AFLEg7wCSoqVwsNw7R5cFR0CuitoFBAS7kzwqygEUpN5EWQVALXGSIHeq9ThzxV4RxQCAG8yHmgVYDVi6gMvJ3GxllZAV4gugXapTL1vB2093Kx5z98oANC7+QQ/AS82NDm+jlHAVIxh4cXnFABoGnyiMNxupMTcvgQA7i2fMAh3m+bFfQkAHEfQzzJ8uKKY+VwcXwIABYRs4CrxxVQgipSjn/A5dPgWUEEzgQz6ugrepPy/LkIJ/CZjgS9txfPkHRHLFwAAAABJRU5ErkJggg==";
 
@@ -20,6 +17,12 @@ const IDX_STATUS = 0;
 const IDX_OPEN = 2;
 const IDX_RESET = 3;
 const IDX_QUIT = 5;
+
+function trayLog(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  try { appendFileSync(LOG_FILE, line); } catch { /* ignore */ }
+  console.log("[tray]", msg);
+}
 
 function formatStatus(totals) {
   const streak =
@@ -42,6 +45,9 @@ function ensureTrayBinary(root) {
     if (existsSync(bundled)) {
       mkdirSync(cacheDir, { recursive: true });
       copyFileSync(bundled, cacheBin);
+      trayLog(`Copied tray binary from ${bundled}`);
+    } else {
+      trayLog(`No bundled tray binary at ${bundled} — relying on node_modules path`);
     }
   }
 }
@@ -50,7 +56,17 @@ export function initTray({ root, initialTotals, onReset, onQuit }) {
   if (process.platform !== "win32") return null;
 
   try {
+    trayLog("Initializing tray...");
     ensureTrayBinary(root);
+
+    // systray is CJS; require gives reliable interop under Bun's ESM runtime.
+    // Keep this INSIDE the try/catch so any load failure is non-fatal.
+    const _require = createRequire(import.meta.url);
+    trayLog("Loading systray module...");
+    const systrayMod = _require("systray");
+    trayLog(`systray module keys: ${Object.keys(systrayMod).join(", ")}`);
+    const SysTray = systrayMod.default ?? systrayMod;
+    trayLog(`SysTray type: ${typeof SysTray}`);
 
     const tray = new SysTray({
       menu: {
@@ -107,10 +123,10 @@ export function initTray({ root, initialTotals, onReset, onQuit }) {
     });
 
     tray.onError((err) => {
-      console.error("[tray] error:", err.message ?? err);
+      trayLog(`error: ${err?.message ?? err}`);
     });
 
-    console.log("[tray] System tray icon active.");
+    trayLog("System tray icon active.");
     return {
       update(totals) {
         try {
@@ -131,6 +147,8 @@ export function initTray({ root, initialTotals, onReset, onQuit }) {
       },
     };
   } catch (err) {
+    const msg = err?.stack ?? err?.message ?? String(err);
+    try { appendFileSync(LOG_FILE, `[${new Date().toISOString()}] TRAY INIT FAILED:\n${msg}\n`); } catch { /* ignore */ }
     console.warn("[tray] Could not initialize system tray:", err?.message ?? err);
     return null;
   }
