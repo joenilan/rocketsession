@@ -5,3 +5,4 @@ session-data.json
 *.exe
 standalone/
 rocket-session-stats-standalone.zip
+src-tauri/target/

@@ -4,7 +4,6 @@ import { createReadStream, existsSync, readFileSync, writeFileSync } from "node:
 import { extname, join, resolve, dirname } from "node:path";
 import { execSync } from "node:child_process";
 import { RocketLeagueStatsClient } from "rocket-league-stats-api";
-import { initTray } from "../tray.mjs";
 
 const DEFAULT_STATS_API_ADDR = "127.0.0.1:49123";
 const PORT = Number.parseInt(process.env.SESSION_STATS_PORT ?? "49410", 10);
@@ -499,7 +498,6 @@ function handleMatchEnded(data) {
     raw: data,
   });
   saveSession().catch(() => undefined);
-  tray?.update(state.totals);
 }
 
 function handleMatchDestroyed() {
@@ -615,7 +613,6 @@ const server = createServer(async (req, res) => {
     state.rawEventCounts = {};
     debugLog("Session reset from UI");
     saveSession().catch(() => undefined);
-    tray?.update(state.totals);
     emit();
     writeJson(res, 200, state);
     return;
@@ -704,24 +701,6 @@ server.listen(PORT, "127.0.0.1", () => {
   }
 });
 
-const tray = initTray({
-  root: ROOT,
-  initialTotals: state.totals,
-  onReset() {
-    state.totals = zeroTotals();
-    state.lastMatch = null;
-    state.rawEventCounts = {};
-    debugLog("Session reset from tray");
-    saveSession().catch(() => undefined);
-    tray?.update(state.totals);
-    emit();
-  },
-  onQuit() {
-    client.disconnect();
-    server.close(() => process.exit(0));
-  },
-});
-
 const { host, port } = parseAddress(STATS_API_ADDR);
 const client = new RocketLeagueStatsClient({ host, port, autoReconnect: true });
 
@@ -737,7 +716,6 @@ try {
 }
 
 process.on("SIGINT", () => {
-  tray?.kill();
   client.disconnect();
   server.close(() => process.exit(0));
 });
