@@ -1,5 +1,9 @@
-import SysTray from "systray";
+import { createRequire } from "node:module";
 import { existsSync, mkdirSync, copyFileSync } from "node:fs";
+
+// systray is CJS; createRequire gives reliable interop under Bun's ESM runtime
+const _require = createRequire(import.meta.url);
+const SysTray = _require("systray").default ?? _require("systray");
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
