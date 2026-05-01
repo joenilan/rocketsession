@@ -10,6 +10,8 @@ import { homedir } from "node:os";
 
 const SESSION_URL = "http://127.0.0.1:49410";
 
+const ICON_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIDSURBVFhH7Za/S0JRFMf9D9pUxEQkxSyagoiIQAiKKIggGoJqiQiKQBoc2toaHNpahBYb+w/Epa3RrUXaampU0xNfQbvvnPvjvVfU4oXP4vPc+7nnnnvei0zECvSfRPgPf81YILRAcSZH63NZD/w/fggkgEXvt1P0dhandikq+LiI0sNOkvbmp0SsCV8C2XSeHneTYkEb9f0kLU3nxFwcpwB2/Xqq37ELZORwwZ4NqwDOdThZt0nO0a9vCQlgkzAKzGbynp37ERiMZlkIIBOm4zAK8DP3LUAt+qzILDwfJcQaRgE19VKgQV1Nmjv11kjBdBTHixmxllYAV4kHuwTalSr1HQJPBzILQiCWKAzOjAe7BNQM9Gry+RDUllUA144HeQVcQy84hN8IIYAuxoOCCNh2Dy5XvHUgBM6XMyLILaCvfB3Xq2m7AFLEg7wCSoqVwsNw7R5cFR0CuitoFBAS7kzwqygEUpN5EWQVALXGSIHeq9ThzxV4RxQCAG8yHmgVYDVi6gMvJ3GxllZAV4gugXapTL1vB2093Kx5z98oANC7+QQ/AS82NDm+jlHAVIxh4cXnFABoGnyiMNxupMTcvgQA7i2fMAh3m+bFfQkAHEfQzzJ8uKKY+VwcXwIABYRs4CrxxVQgipSjn/A5dPgWUEEzgQz6ugrepPy/LkIJ/CZjgS9txfPkHRHLFwAAAABJRU5ErkJggg==";
+
 // Must match systray@1.0.5's internal cache path logic
 const SYSTRAY_CACHE_VERSION = "1.0.5";
 const TRAY_BIN_NAME = "tray_windows_release.exe";
@@ -52,7 +54,7 @@ export function initTray({ root, initialTotals, onReset, onQuit }) {
 
     const tray = new SysTray({
       menu: {
-        icon: "",
+        icon: ICON_BASE64,
         title: "Rocket Session",
         tooltip: "Rocket Session Stats",
         items: [
