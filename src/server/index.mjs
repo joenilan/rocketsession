@@ -702,7 +702,7 @@ server.listen(PORT, "127.0.0.1", () => {
 });
 
 const { host, port } = parseAddress(STATS_API_ADDR);
-const client = new RocketLeagueStatsClient({ host, port });
+const client = new RocketLeagueStatsClient({ host, port, autoReconnect: true });
 
 client.on("connected", () => setConnection("connected", "Connected to Rocket League Stats API."));
 client.on("disconnected", ({ reason }) => setConnection("disconnected", `Disconnected: ${reason}`));
