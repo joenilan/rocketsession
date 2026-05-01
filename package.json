@@ -1,0 +1,30 @@
+{
+  "name": "rocket-session-stats",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run scripts/dev.mjs",
+    "debug": "SESSION_STATS_DEBUG=1 bun run scripts/dev.mjs",
+    "debug:raw": "SESSION_STATS_DEBUG=1 SESSION_STATS_DEBUG_RAW=1 bun run scripts/dev.mjs",
+    "dev:server": "bun --watch src/server/index.mjs",
+    "dev:ui": "vite --host 127.0.0.1 --port 49411",
+    "build": "tsc --noEmit && vite build",
+    "check": "bun run build && node --check src/server/index.mjs",
+    "version:check-all-notes": "echo \"Run this from broadcast-assistant root: bun run version:check-all-notes\"",
+    "start": "bun src/server/index.mjs",
+    "bundle:standalone": "bun run scripts/bundle-standalone.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.6.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "rocket-league-stats-api": "^0.1.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6"
+  }
+}
