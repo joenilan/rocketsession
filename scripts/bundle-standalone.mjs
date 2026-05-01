@@ -10,6 +10,7 @@ const distDir = join(ROOT, "dist");
 const outDir = join(ROOT, "standalone");
 const exeName = "rocket-session-stats.exe";
 const exeOut = join(ROOT, exeName);
+const trayBin = join(ROOT, "node_modules", "systray", "traybin", "tray_windows_release.exe");
 const zipPath = join(ROOT, "rocket-session-stats-standalone.zip");
 
 async function ensureExists(p, label) {
@@ -55,6 +56,13 @@ async function main() {
   await mkdir(outDir, { recursive: true });
   await cp(exeOut, join(outDir, exeName));
   await cp(distDir, join(outDir, "dist"), { recursive: true });
+  // Tray binary must live next to the exe so the server can pre-populate
+  // systray's cache on first launch (compiled binaries can't read node_modules)
+  try {
+    await cp(trayBin, join(outDir, "tray_windows_release.exe"));
+  } catch {
+    console.warn("systray tray binary not found — tray icon will not work in standalone mode.");
+  }
 
   await rm(zipPath, { force: true });
   console.log(`Zipping → ${zipPath}`);

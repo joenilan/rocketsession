@@ -2,3 +2,6 @@ dist
 node_modules
 .env
 session-data.json
+*.exe
+standalone/
+rocket-session-stats-standalone.zip
