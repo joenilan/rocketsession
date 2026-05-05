@@ -249,6 +249,7 @@ fn write_obs_files(data_dir: &PathBuf, snap: &SessionSnapshot) {
 
 pub enum TrackerCmd {
     Reset,
+    ResetHistory,
     SetTrackedPlayer(String),
     SetAllowDualPc(bool),
     SetOverlaySettings(OverlaySettings),
@@ -507,10 +508,14 @@ pub fn spawn_session_tracker(
 
             match cmd {
                 TrackerCmd::Reset => {
-                    let _ = log_tx.send(crate::logging::LogEntry::info("session", "Session reset"));
+                    let _ = log_tx.send(crate::logging::LogEntry::info("session", "Session stats reset"));
                     tracker.snap.totals = SessionTotals::default();
                     tracker.snap.last_match = None;
                     tracker.snap.raw_event_counts.clear();
+                    needs_persist = true;
+                }
+                TrackerCmd::ResetHistory => {
+                    let _ = log_tx.send(crate::logging::LogEntry::info("session", "Match history cleared"));
                     tracker.history.clear();
                     tracker.sync_history();
                     needs_persist = true;

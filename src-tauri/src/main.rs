@@ -43,6 +43,11 @@ async fn cmd_reset_session(state: tauri::State<'_, RssState>) -> Result<(), Stri
 }
 
 #[tauri::command]
+async fn cmd_reset_history(state: tauri::State<'_, RssState>) -> Result<(), String> {
+    state.cmd_tx.send(TrackerCmd::ResetHistory).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn cmd_set_tracked_player(state: tauri::State<'_, RssState>, id: String) -> Result<(), String> {
     state.cmd_tx.send(TrackerCmd::SetTrackedPlayer(id)).map_err(|e| e.to_string())
 }
@@ -204,6 +209,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             cmd_get_session,
             cmd_reset_session,
+            cmd_reset_history,
             cmd_set_tracked_player,
             cmd_set_allow_dual_pc,
             cmd_get_ips,

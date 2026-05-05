@@ -308,9 +308,18 @@ export function SessionView({ snapshot }: { snapshot: SessionSnapshot }) {
       <button
         onClick={() => void postJson("/api/session/reset")}
         className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-txt-primary hover:border-txt-primary/30 transition-all"
+        title="Reset session stats only"
       >
         <RotateCcw size={10} />
-        Reset
+        Reset Stats
+      </button>
+      <button
+        onClick={() => void postJson("/api/session/reset-history")}
+        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-destructive hover:border-destructive/30 transition-all"
+        title="Clear match history"
+      >
+        <RotateCcw size={10} />
+        Clear History
       </button>
     </div>
   );

@@ -83,6 +83,12 @@ async fn post_reset(State(state): State<AppState>) -> impl IntoResponse {
     json_response(StatusCode::OK, &snap)
 }
 
+async fn post_reset_history(State(state): State<AppState>) -> impl IntoResponse {
+    let _ = state.cmd_tx.send(TrackerCmd::ResetHistory);
+    let snap = state.shared.read().await.clone();
+    json_response(StatusCode::OK, &snap)
+}
+
 #[derive(Deserialize)]
 struct TrackedPlayerBody {
     id: String,
@@ -349,6 +355,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/events", get(get_events))
         .route("/api/ips", get(get_ips))
         .route("/api/session/reset", post(post_reset))
+        .route("/api/session/reset-history", post(post_reset_history))
         .route("/api/tracked-player", post(post_tracked_player))
         .route("/api/network-access", post(post_network_access))
         .route("/api/stats-api-config", get(get_stats_api_config))

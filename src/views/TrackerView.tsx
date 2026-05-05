@@ -107,6 +107,7 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 
 export function TrackerView({ snapshot }: { snapshot: SessionSnapshot }) {
   const [resetBusy, setResetBusy] = useState(false);
+  const [clearHistoryBusy, setClearHistoryBusy] = useState(false);
 
   const history = snapshot.matchHistory;
   const totals = snapshot.totals;
@@ -120,18 +121,34 @@ export function TrackerView({ snapshot }: { snapshot: SessionSnapshot }) {
   const hasPersonalStats = totals.goals + totals.assists + totals.saves + totals.shots + totals.demos > 0;
 
   const headerAction = (
-    <button
-      disabled={resetBusy}
-      onClick={async () => {
-        setResetBusy(true);
-        try { await postJson("/api/session/reset"); }
-        finally { setResetBusy(false); }
-      }}
-      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-txt-primary hover:border-txt-primary/30 transition-all disabled:opacity-40"
-    >
-      <RotateCcw size={10} />
-      Reset
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        disabled={resetBusy}
+        onClick={async () => {
+          setResetBusy(true);
+          try { await postJson("/api/session/reset"); }
+          finally { setResetBusy(false); }
+        }}
+        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-txt-primary hover:border-txt-primary/30 transition-all disabled:opacity-40"
+        title="Reset session stats only"
+      >
+        <RotateCcw size={10} />
+        Reset Stats
+      </button>
+      <button
+        disabled={clearHistoryBusy}
+        onClick={async () => {
+          setClearHistoryBusy(true);
+          try { await postJson("/api/session/reset-history"); }
+          finally { setClearHistoryBusy(false); }
+        }}
+        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-destructive hover:border-destructive/30 transition-all disabled:opacity-40"
+        title="Clear match history"
+      >
+        <RotateCcw size={10} />
+        Clear History
+      </button>
+    </div>
   );
 
   return (
