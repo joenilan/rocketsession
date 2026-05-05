@@ -3,6 +3,7 @@ node_modules
 .env
 session-data.json
 *.exe
-standalone/
-rocket-session-stats-standalone.zip
+portable/
+rocket-session-stats-*.zip
 src-tauri/target/
+obs-text/

@@ -66,8 +66,22 @@ export type StatsApiConfigStatus = {
   installDir: string | null;
   packetSendRate: number;
   port: number;
-  rocketLeagueRunning: boolean;
   error: string | null;
+};
+
+export type HistoricalMatch = {
+  id: string;
+  endedAt: string;
+  result: "win" | "loss" | "neutral" | "unknown";
+  teams: [SessionTeam, SessionTeam];
+  players: SessionPlayer[];
+};
+
+export type OverlaySettings = {
+  x: number;
+  y: number;
+  scale: number;
+  opacity: number;
 };
 
 export type SessionSnapshot = {
@@ -75,10 +89,13 @@ export type SessionSnapshot = {
   connection: ConnectionState;
   connectionMessage: string;
   statsApiAddress: string;
+  allowDualPC: boolean;
   lastEventAt: string | null;
   trackedPlayer: TrackedPlayer;
   currentMatch: CurrentMatch;
   totals: SessionTotals;
   lastMatch: LastMatch;
+  matchHistory: HistoricalMatch[];
   rawEventCounts: Record<string, number>;
+  overlaySettings: OverlaySettings;
 };

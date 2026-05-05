@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createReadStream, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { RocketLeagueStatsClient } from "rocket-league-stats-api";
 
@@ -18,7 +19,7 @@ const DEBUG_UPDATE_INTERVAL = Math.max(
 // When running as a script via bun/node, argv[1] is the script path.
 const isDevScript = typeof process.argv[1] === "string" && /\.(m?js|ts)$/i.test(process.argv[1]);
 const ROOT = isDevScript
-  ? resolve(new URL("../../", import.meta.url).pathname)
+  ? fileURLToPath(new URL("../../", import.meta.url))
   : dirname(resolve(process.argv[0]));
 const DIST_DIR = join(ROOT, "dist");
 const DATA_FILE = join(ROOT, "session-data.json");
@@ -195,11 +196,34 @@ async function saveSession() {
   try {
     await writeFile(
       DATA_FILE,
-      JSON.stringify({ totals: state.totals, trackedPlayer: state.trackedPlayer, lastMatch: state.lastMatch }, null, 2),
+      JSON.stringify({ totals: state.totals, trackedPlayer: state.trackedPlayer, lastMatch: state.lastMatch, allowDualPC: state.allowDualPC, matchHistory: state.matchHistory }, null, 2),
       "utf8",
     );
   } catch (err) {
     console.error("[session] Failed to save:", err?.message ?? err);
+  }
+  
+  try {
+    const textDir = resolve(ROOT, "obs-text");
+    if (!existsSync(textDir)) await mkdir(textDir, { recursive: true });
+    
+    const writeTxt = (name, val) => writeFile(join(textDir, name), String(val), "utf8");
+    
+    await Promise.all([
+      writeTxt("wins.txt", state.totals.wins),
+      writeTxt("losses.txt", state.totals.losses),
+      writeTxt("games.txt", state.totals.games),
+      writeTxt("streak.txt", state.totals.streak > 0 ? `W${state.totals.streak}` : state.totals.streak < 0 ? `L${Math.abs(state.totals.streak)}` : "0"),
+      writeTxt("goals.txt", state.totals.goals),
+      writeTxt("assists.txt", state.totals.assists),
+      writeTxt("saves.txt", state.totals.saves),
+      writeTxt("shots.txt", state.totals.shots),
+      writeTxt("demos.txt", state.totals.demos),
+      writeTxt("tracked_player.txt", state.trackedPlayer?.name ?? "None"),
+      writeTxt("connection.txt", state.connection)
+    ]);
+  } catch (err) {
+    console.error("[session] Failed to write text files:", err?.message ?? err);
   }
 }
 
@@ -223,6 +247,12 @@ async function loadSession() {
       if (parsed.lastMatch && typeof parsed.lastMatch === "object") {
         state.lastMatch = parsed.lastMatch;
       }
+      if (Array.isArray(parsed.matchHistory)) {
+        state.matchHistory = parsed.matchHistory;
+      }
+      if (typeof parsed.allowDualPC === "boolean") {
+        state.allowDualPC = parsed.allowDualPC;
+      }
       console.log("[session] Restored session from disk.");
     }
   } catch (err) {
@@ -237,6 +267,7 @@ const state = {
   connection: "connecting",
   connectionMessage: "Connecting to Rocket League Stats API...",
   statsApiAddress: STATS_API_ADDR,
+  allowDualPC: false,
   lastEventAt: null,
   trackedPlayer: null,
   currentMatch: {
@@ -250,6 +281,7 @@ const state = {
   },
   totals: zeroTotals(),
   lastMatch: null,
+  matchHistory: [],
   rawEventCounts: {},
 };
 
@@ -338,6 +370,7 @@ function normalizePlayer(player) {
     demos: numberField(player, "Demos"),
     touches: numberField(player, "Touches"),
     boost: Number.isFinite(player?.Boost) ? player.Boost : null,
+    isDeleted: boolField(player, "bDeleted", false),
   };
 }
 
@@ -390,7 +423,9 @@ function applyTrackedPlayerStats(player) {
 
 function handleUpdateState(data) {
   const players = Array.isArray(data?.Players)
-    ? data.Players.map(normalizePlayer).filter((player) => player.team === 0 || player.team === 1)
+    ? data.Players
+        .map(normalizePlayer)
+        .filter((player) => (player.team === 0 || player.team === 1) && !player.isDeleted)
     : [];
   const game = data?.Game ?? {};
   maybeAutoTrackOnlyPlayer(players);
@@ -489,6 +524,19 @@ function handleMatchEnded(data) {
     trackedTeam,
     endedAt: new Date().toISOString(),
   };
+
+  const historicalMatch = {
+    id: data.MatchGuid || state.lastMatch.endedAt,
+    endedAt: state.lastMatch.endedAt,
+    result,
+    teams: JSON.parse(JSON.stringify(state.currentMatch.teams)),
+    players: JSON.parse(JSON.stringify(state.currentMatch.players))
+  };
+  
+  state.matchHistory.unshift(historicalMatch);
+  if (state.matchHistory.length > 25) {
+    state.matchHistory.pop();
+  }
 
   debugLog("MatchEnded", {
     winnerTeam,
@@ -607,6 +655,64 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/ips") {
+    if (!state.allowDualPC) {
+      writeJson(res, 200, { ips: ["127.0.0.1"] });
+      return;
+    }
+    const os = await import("node:os");
+    const nets = os.networkInterfaces();
+    const results = [];
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        if (net.family === "IPv4" && !net.internal) {
+          results.push(net.address);
+        }
+      }
+    }
+    writeJson(res, 200, { ips: results.length > 0 ? results : ["127.0.0.1"] });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/network-access") {
+    const body = await readJson(req);
+    state.allowDualPC = !!body.allowDualPC;
+    saveSession().catch(() => undefined);
+    emit();
+    writeJson(res, 200, state);
+
+    setTimeout(() => {
+      server.close(() => {
+        server.listen(PORT, state.allowDualPC ? "0.0.0.0" : "127.0.0.1", () => {
+          debugLog(`Re-bound server to ${state.allowDualPC ? "0.0.0.0" : "127.0.0.1"}:${PORT}`);
+        });
+      });
+      for (const client of clients) client.end();
+      if (server.closeAllConnections) server.closeAllConnections();
+    }, 100);
+
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/open-obs-text") {
+    try {
+      const textDir = resolve(ROOT, "obs-text");
+      const { mkdir } = await import("node:fs/promises");
+      if (!existsSync(textDir)) await mkdir(textDir, { recursive: true });
+      if (process.platform === "win32") {
+        execSync(`start "" "${textDir}"`);
+      } else if (process.platform === "darwin") {
+        execSync(`open "${textDir}"`);
+      } else {
+        execSync(`xdg-open "${textDir}"`);
+      }
+      writeJson(res, 200, { ok: true });
+    } catch (e) {
+      writeJson(res, 500, { error: String(e) });
+    }
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/session/reset") {
     state.totals = zeroTotals();
     state.lastMatch = null;
@@ -648,10 +754,6 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "POST" && url.pathname === "/api/stats-api-config/enable") {
     const body = await readJson(req);
-    if (isRocketLeagueRunning()) {
-      writeJson(res, 409, { error: "Close Rocket League first, then restart it after enabling." });
-      return;
-    }
     const { path: configPath, error } = resolveIniPath(body?.path);
     if (!configPath) { writeJson(res, 400, { error }); return; }
     if (!existsSync(dirname(configPath))) { writeJson(res, 400, { error: "Rocket League TAGame\\Config folder not found." }); return; }
@@ -668,10 +770,6 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "POST" && url.pathname === "/api/stats-api-config/disable") {
     const body = await readJson(req);
-    if (isRocketLeagueRunning()) {
-      writeJson(res, 409, { error: "Close Rocket League first, then restart it after disabling." });
-      return;
-    }
     const { path: configPath, error } = resolveIniPath(body?.path);
     if (!configPath) { writeJson(res, 400, { error }); return; }
     if (!existsSync(configPath)) { writeJson(res, 400, { error: "DefaultStatsAPI.ini not found." }); return; }
@@ -692,8 +790,8 @@ const server = createServer(async (req, res) => {
 
 await loadSession();
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Rocket Session Stats server: http://127.0.0.1:${PORT}`);
+server.listen(PORT, state.allowDualPC ? "0.0.0.0" : "127.0.0.1", () => {
+  console.log(`Rocket Session Stats server: http://${state.allowDualPC ? "0.0.0.0" : "127.0.0.1"}:${PORT}`);
   console.log(`Stats API target: ${STATS_API_ADDR}`);
   if (DEBUG) {
     console.log("Debug logging enabled. Use SESSION_STATS_DEBUG_RAW=1 for full payload dumps.");

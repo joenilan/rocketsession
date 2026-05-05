@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export type Theme =
   | "modern"
+  | "zinc"
   | "terminal"
   | "amber"
   | "cyberwave"
@@ -17,7 +18,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const ALL_THEMES: Theme[] = ["terminal", "amber", "cyberwave", "glass", "crimson", "orange", "ocean"];
+const ALL_THEMES: Theme[] = ["zinc", "terminal", "amber", "cyberwave", "glass", "crimson", "orange", "ocean"];
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
