@@ -164,6 +164,67 @@ function MiniStat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function FocusedPlayerCard({ player }: { player: import("../types").SessionPlayer }) {
+  const isBlue = player.team === 0;
+  const teamColor = isBlue ? "#60a5fa" : "#fb923c";
+
+  return (
+    <div className="bg-surface-card/60 border border-accent/30 rounded-xl p-4 backdrop-blur-sm shadow-[0_0_24px_-6px_rgba(var(--color-accent-primary)/0.25)] animate-in fade-in slide-in-from-bottom-2 duration-200">
+      {/* Name + score row */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className={twMerge(
+          "text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-full shrink-0",
+          isBlue ? "bg-blue-500/20 text-blue-300" : "bg-orange-500/20 text-orange-300",
+        )}>
+          {isBlue ? "Blue" : "Orange"}
+        </span>
+        <span className="font-bold text-sm text-txt-primary flex-1 truncate">{player.name}</span>
+        <div className="flex items-baseline gap-1 shrink-0">
+          <span className="text-3xl font-mono font-bold text-txt-primary leading-none">{player.score}</span>
+          <span className="text-[9px] text-txt-muted font-mono">pts</span>
+        </div>
+      </div>
+
+      {/* Boost bar */}
+      {player.boost != null && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Boost</span>
+            <span className="text-[10px] font-mono font-bold" style={{ color: teamColor }}>{player.boost}%</span>
+          </div>
+          <div className="h-1.5 bg-surface-base/80 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${player.boost}%`,
+                background: `linear-gradient(90deg, ${teamColor}60, ${teamColor})`,
+                boxShadow: `0 0 8px ${teamColor}60`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+        {([
+          ["Goals",   player.goals],
+          ["Assists", player.assists],
+          ["Saves",   player.saves],
+          ["Shots",   player.shots],
+          ["Demos",   player.demos],
+          ["Touches", player.touches],
+        ] as [string, number][]).map(([label, val]) => (
+          <div key={label} className="flex flex-col gap-0.5">
+            <span className="text-[9px] font-mono uppercase tracking-wider text-txt-muted">{label}</span>
+            <span className="text-xl font-mono font-bold text-txt-primary leading-none">{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatsApiCard() {
   const [status, setStatus] = useState<StatsApiConfigStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -273,6 +334,10 @@ export function SessionView({ snapshot }: { snapshot: SessionSnapshot }) {
 
   const [togglingNetwork, setTogglingNetwork] = useState(false);
 
+  const focusedPlayer = snapshot.trackedPlayer
+    ? (snapshot.currentMatch.players.find(p => p.id === snapshot.trackedPlayer!.id) ?? null)
+    : null;
+
   const hasHistory = snapshot.matchHistory.length > 0;
   const chartData  = useMemo(() => hasHistory ? buildChartData(snapshot.matchHistory) : [], [snapshot.matchHistory, hasHistory]);
   const perfData   = useMemo(() => hasHistory ? buildPerfData(snapshot.matchHistory, snapshot.trackedPlayer?.id) : [], [snapshot.matchHistory, snapshot.trackedPlayer, hasHistory]);
@@ -308,18 +373,9 @@ export function SessionView({ snapshot }: { snapshot: SessionSnapshot }) {
       <button
         onClick={() => void postJson("/api/session/reset")}
         className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-txt-primary hover:border-txt-primary/30 transition-all"
-        title="Reset session stats only"
       >
         <RotateCcw size={10} />
-        Reset Stats
-      </button>
-      <button
-        onClick={() => void postJson("/api/session/reset-history")}
-        className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-destructive hover:border-destructive/30 transition-all"
-        title="Clear match history"
-      >
-        <RotateCcw size={10} />
-        Clear History
+        Reset
       </button>
     </div>
   );
@@ -410,6 +466,9 @@ export function SessionView({ snapshot }: { snapshot: SessionSnapshot }) {
           )}
         </div>
       </div>
+
+      {/* Focused player card */}
+      {focusedPlayer && <FocusedPlayerCard player={focusedPlayer} />}
 
       {/* Charts — only once there's history */}
       {hasHistory && (

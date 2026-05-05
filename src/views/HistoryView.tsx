@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { History, ChevronDown, ChevronRight } from "lucide-react";
+import { History, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
+import { postJson } from "../lib/api";
 import { twMerge } from "tailwind-merge";
 import { ViewShell } from "../components/ViewShell";
 import type { SessionSnapshot, HistoricalMatch, SessionPlayer } from "../types";
@@ -151,12 +152,29 @@ function HistoryCard({ match }: { match: HistoricalMatch }) {
 
 export function HistoryView({ snapshot }: { snapshot: SessionSnapshot }) {
   const count = snapshot.matchHistory.length;
+  const [clearing, setClearing] = useState(false);
+
+  const headerAction = count > 0 ? (
+    <button
+      disabled={clearing}
+      onClick={async () => {
+        setClearing(true);
+        try { await postJson("/api/session/reset-history"); }
+        finally { setClearing(false); }
+      }}
+      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-txt-primary/10 bg-surface-base/60 text-[10px] font-mono font-bold uppercase tracking-widest text-txt-muted hover:text-destructive hover:border-destructive/30 transition-all disabled:opacity-40"
+    >
+      <RotateCcw size={10} />
+      Clear
+    </button>
+  ) : undefined;
 
   return (
     <ViewShell
       title="History"
       subtitle={count > 0 ? `${count} match${count === 1 ? "" : "es"} this session` : "Past matches from this session."}
       icon={History}
+      headerAction={headerAction}
     >
       <div className="space-y-2">
         {count === 0 ? (
