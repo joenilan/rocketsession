@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#0f0f13"/>
+
+  <!-- Subtle radial glow top-left -->
+  <radialGradient id="glow" cx="30%" cy="25%" r="60%">
+    <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="80" fill="url(#glow)"/>
+
+  <!-- Bar chart — 3 bars ascending left to right -->
+  <!-- Bar 1 (short) -->
+  <rect x="102" y="310" width="82" height="140" rx="14" fill="#4c1d95" opacity="0.9"/>
+  <!-- Bar 2 (medium) -->
+  <rect x="215" y="230" width="82" height="220" rx="14" fill="#6d28d9" opacity="0.95"/>
+  <!-- Bar 3 (tall, accent) -->
+  <rect x="328" y="130" width="82" height="320" rx="14" fill="#7c3aed"/>
+
+  <!-- Highlight on tallest bar -->
+  <rect x="328" y="130" width="82" height="40" rx="14" fill="#a78bfa" opacity="0.5"/>
+
+  <!-- Subtle top border line -->
+  <rect x="0" y="0" width="512" height="2" rx="1" fill="#7c3aed" opacity="0.3"/>
+</svg>

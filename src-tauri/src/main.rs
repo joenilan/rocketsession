@@ -7,13 +7,13 @@ mod session;
 mod stats_api_adapter;
 mod stats_config;
 
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
 };
-use tauri_plugin_notification::NotificationExt;
+use tauri_plugin_dialog::DialogExt;
 use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
 
 use session::{SessionSnapshot, TrackerCmd};
@@ -206,6 +206,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             cmd_get_session,
             cmd_reset_session,
@@ -357,31 +358,37 @@ fn main() {
 
             Ok(())
         })
-        .on_window_event(|window, event| match event {
-            WindowEvent::CloseRequested { api, .. } => {
-                let _ = window.hide();
-                api.prevent_close();
-                let _ = window
-                    .app_handle()
-                    .notification()
-                    .builder()
-                    .title("Rocket Session Stats")
-                    .body("The app is still running in the system tray.")
-                    .show();
-            }
-            WindowEvent::Resized(_) => {
-                if let Ok(true) = window.is_minimized() {
-                    let _ = window.hide();
-                    let _ = window
-                        .app_handle()
-                        .notification()
-                        .builder()
-                        .title("Rocket Session Stats")
-                        .body("The app is still running in the system tray.")
-                        .show();
+        .on_window_event({
+            let tray_notice_shown = Arc::new(AtomicBool::new(false));
+            move |window, event| {
+                let should_notify = match event {
+                    WindowEvent::CloseRequested { api, .. } => {
+                        let _ = window.hide();
+                        api.prevent_close();
+                        true
+                    }
+                    WindowEvent::Resized(_) => {
+                        if window.is_minimized().unwrap_or(false) {
+                            let _ = window.hide();
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                };
+
+                if should_notify && !tray_notice_shown.swap(true, Ordering::Relaxed) {
+                    let handle = window.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        handle
+                            .dialog()
+                            .message("Rocket Session Stats is still running in the system tray.\n\nDouble-click the tray icon to bring it back.")
+                            .title("Still running")
+                            .show(|_| {});
+                    });
                 }
             }
-            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error running Rocket Session Stats");
