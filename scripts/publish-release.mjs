@@ -16,8 +16,19 @@ const env = {
 
 const host = requiredEnv(env, 'SSH_HOST')
 const username = requiredEnv(env, 'SSH_USER')
-const password = requiredEnv(env, 'SSH_PASSWORD')
 const port = Number.parseInt(env.SSH_PORT ?? '22', 10)
+
+// Prefer key auth (Pi has password auth disabled); fall back to password if key not found
+const defaultKeyPath = resolve(process.env.HOME ?? process.env.USERPROFILE ?? '', '.ssh', 'id_ed25519')
+const sshKeyPath = env.SSH_PRIVATE_KEY_PATH ?? defaultKeyPath
+let sshAuth
+try {
+  sshAuth = { privateKey: readFileSync(sshKeyPath) }
+} catch {
+  const pw = env.SSH_PASSWORD
+  if (!pw) throw new Error('No SSH key found and SSH_PASSWORD not set in .env.raspi')
+  sshAuth = { password: pw }
+}
 const appSlug = env.RELEASE_APP_SLUG ?? 'rocket-session'
 const baseDir = env.RPI_RELEASE_BASE_DIR ?? '/mnt/data/sites/apps/public/downloads'
 const channel = env.RELEASE_CHANNEL ?? 'stable'
@@ -101,7 +112,7 @@ for (const filePath of uploadPaths) {
 const sftp = new SftpClient()
 
 try {
-  await sftp.connect({ host, port, username, password })
+  await sftp.connect({ host, port, username, ...sshAuth })
   await sftp.mkdir(remoteDir, true)
   await archiveCurrentTopLevelRelease(sftp)
 
