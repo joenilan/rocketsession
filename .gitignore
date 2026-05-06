@@ -7,6 +7,7 @@ session-data.json
 *.exe
 portable/
 rocket-session-stats-*.zip
+rocket-session-stats-*/
 release/
 src-tauri/target/
 obs-text/

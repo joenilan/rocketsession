@@ -9,8 +9,6 @@
     "build": "tsc --noEmit && vite build",
     "build:tauri": "tauri build",
     "tauri": "tauri",
-    "bundle:portable": "bun run tauri build -- --bundles none && node scripts/package-portable.mjs",
-    "bundle:all": "bun run tauri build && node scripts/package-portable.mjs",
     "version:sync": "node scripts/bump-version.mjs sync",
     "version:patch": "node scripts/bump-version.mjs patch",
     "version:minor": "node scripts/bump-version.mjs minor",
@@ -21,7 +19,6 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
-    "@tauri-apps/plugin-notification": "~2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@vitejs/plugin-react": "^4.6.0",
