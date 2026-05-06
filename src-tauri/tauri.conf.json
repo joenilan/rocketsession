@@ -19,7 +19,8 @@
         "minWidth": 680,
         "minHeight": 480,
         "resizable": true,
-        "visible": true
+        "visible": true,
+        "backgroundColor": "#09090b"
       }
     ],
     "security": {

@@ -90,6 +90,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<View>("session");
 
   if (new URLSearchParams(window.location.search).get("overlay") === "1") {
+    document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
     return <OverlayView snapshot={snapshot} />;
   }
