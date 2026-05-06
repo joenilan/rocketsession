@@ -1,11 +1,15 @@
+## 1.0.2
+
+- OBS now uses one root browser-source URL that renders the saved overlay mode
+- Added Text Overlay Studio for custom stat labels/values with font, color, size, opacity, and position controls
+- Added raw `/text/<stat>` HTTP endpoints for wins, losses, streak, win rate, and other session values
+- Fixed the release notes check so patch verification works before publishing
+
 ## 1.0.1
 
 - Stats API port is now configurable in Settings for users who have port 49123 in use
 - Removed broken port field that wrote the INI without updating the app connection
 - Port preference persists across restarts via settings.json in app data dir
-- OBS now uses one root browser-source URL that renders the saved overlay mode
-- Added Text Overlay Studio for custom stat labels/values with font, color, size, opacity, and position controls
-- Added raw `/text/<stat>` HTTP endpoints for wins, losses, streak, win rate, and other session values
 
 ## 1.0.0
 
