@@ -31,7 +31,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg3OUI2QURBMzU0QkQzQkQKUldTOTAwczEybXFiaDdjVXhYMFNiZXo0SHlBU3ZCTmh6ZHpkWFlUZ2d1ZU9FaTlNQ0d0Y21URFIK",
       "endpoints": [
-        "https://apps.zombie.digital/downloads/rocket-session-stats/updater.json"
+        "https://apps.zombie.digital/downloads/rocket-session/updater.json"
       ]
     }
   },

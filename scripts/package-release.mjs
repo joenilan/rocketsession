@@ -9,7 +9,7 @@ const nsisDir = resolve(appRoot, 'src-tauri', 'target', 'release', 'bundle', 'ns
 const portableExe = resolve(appRoot, 'src-tauri', 'target', 'release', 'rocket-session-stats.exe')
 const distDir = resolve(appRoot, 'dist')
 const releaseRoot = resolve(appRoot, 'release', 'windows')
-const releaseSlug = 'rocket-session-stats'
+const releaseSlug = 'rocket-session'
 
 rmSync(releaseRoot, { recursive: true, force: true })
 mkdirSync(releaseRoot, { recursive: true })

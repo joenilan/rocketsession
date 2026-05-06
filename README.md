@@ -8,7 +8,7 @@ Built with Tauri v2 + React + Rust.
 
 ## Download
 
-Latest release: **https://apps.zombie.digital/downloads/rocket-session-stats/latest.json**
+Latest release: **https://apps.zombie.digital/downloads/rocket-session/latest.json**
 
 The installer, portable ZIP, and patch notes are published there on every release.
 
@@ -115,7 +115,7 @@ bun run release:publish
 
 `release:publish` reads credentials from `.env.raspi` (copy from `.env.raspi.example`, fill in `SSH_PASSWORD`).
 
-The signing private key lives at `~/.tauri/rocket-session-stats.key`.
+The signing private key lives at `~/.tauri/rocket-session.key`.
 
 ---
 
@@ -124,7 +124,7 @@ The signing private key lives at `~/.tauri/rocket-session-stats.key`.
 The download page should read:
 
 ```
-https://apps.zombie.digital/downloads/rocket-session-stats/latest.json
+https://apps.zombie.digital/downloads/rocket-session/latest.json
 ```
 
 **`latest.json` shape:**
@@ -134,12 +134,12 @@ https://apps.zombie.digital/downloads/rocket-session-stats/latest.json
   "version": "1.0.0",
   "channel": "stable",
   "publishedAt": "2026-05-06T00:00:00.000Z",
-  "file": "rocket-session-stats_1.0.0_x64-setup.exe",
+  "file": "rocket-session_1.0.0_x64-setup.exe",
   "notes": "First bullet from patch notes",
   "notesFile": "notes.md",
   "files": {
-    "setup": "rocket-session-stats_1.0.0_x64-setup.exe",
-    "portable": "rocket-session-stats_1.0.0_x64_portable.zip"
+    "setup": "rocket-session_1.0.0_x64-setup.exe",
+    "portable": "rocket-session_1.0.0_x64_portable.zip"
   }
 }
 ```

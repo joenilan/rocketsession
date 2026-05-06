@@ -18,14 +18,14 @@ const host = requiredEnv(env, 'SSH_HOST')
 const username = requiredEnv(env, 'SSH_USER')
 const password = requiredEnv(env, 'SSH_PASSWORD')
 const port = Number.parseInt(env.SSH_PORT ?? '22', 10)
-const appSlug = env.RELEASE_APP_SLUG ?? 'rocket-session-stats'
+const appSlug = env.RELEASE_APP_SLUG ?? 'rocket-session'
 const baseDir = env.RPI_RELEASE_BASE_DIR ?? '/mnt/data/sites/apps/public/downloads'
 const channel = env.RELEASE_CHANNEL ?? 'stable'
 const remoteDir = `${baseDir.replace(/\/+$/, '')}/${appSlug}`
 
-const setupName = `rocket-session-stats_${version}_x64-setup.exe`
+const setupName = `rocket-session_${version}_x64-setup.exe`
 const setupSigName = `${setupName}.sig`
-const portableName = `rocket-session-stats_${version}_x64_portable.zip`
+const portableName = `rocket-session_${version}_x64_portable.zip`
 const manifestName = 'manifest.json'
 const notesName = 'notes.md'
 const latestName = 'latest.json'
