@@ -1,9 +1,12 @@
 dist
 node_modules
 .env
+.env.raspi
+.env.raspi.example
 session-data.json
 *.exe
 portable/
 rocket-session-stats-*.zip
+release/
 src-tauri/target/
 obs-text/

@@ -48,8 +48,20 @@ function bumpVersion(current, bumpType) {
   return `${major}.${minor}.${patch}`;
 }
 
+if (type === "check-notes") {
+  const PATCH_NOTES = path.join(APP_ROOT, "PATCH_NOTES.md");
+  const patchNotesSource = fs.existsSync(PATCH_NOTES) ? fs.readFileSync(PATCH_NOTES, "utf8") : "";
+  const versionPattern = new RegExp(`^##\\s+${oldVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "m");
+  if (!versionPattern.test(patchNotesSource)) {
+    console.error(`PATCH_NOTES.md is missing a "## ${oldVersion}" section.`);
+    process.exit(1);
+  }
+  console.log(`PATCH_NOTES.md includes ${oldVersion}.`);
+  process.exit(0);
+}
+
 if (!["patch", "minor", "major", "sync"].includes(type)) {
-  console.error(`Unknown version command "${type}". Use patch, minor, major, or sync.`);
+  console.error(`Unknown version command "${type}". Use patch, minor, major, sync, or check-notes.`);
   process.exit(1);
 }
 
