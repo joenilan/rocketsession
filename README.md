@@ -1,89 +1,153 @@
 # Rocket Session Stats
 
-Standalone experiment for rebuilding the useful parts of RocketStats without BakkesMod.
+Track wins, losses, streaks, and per-match stats from Rocket League's official Stats API — no BakkesMod required.
 
-## Goal
+Built with Tauri v2 + React + Rust.
 
-Track session-level stats from Rocket League's official Stats API:
+---
 
-- wins
-- losses
-- streak
-- game count
-- tracked-player goals/saves/shots/assists/demos/touches
-- freeplay/training ball-hit count and strongest hit
-- current match score and player list
+## Download
 
-Rank/MMR is intentionally not part of the first version because the official Stats API does not publish rank, division, playlist MMR, or MMR delta.
+Latest release: **https://apps.zombie.digital/downloads/rocket-session-stats/latest.json**
 
-## Run
+The installer, portable ZIP, and patch notes are published there on every release.
 
-From this folder:
+---
+
+## Features
+
+- **Session totals** — wins, losses, win rate, current streak
+- **Match history** — per-game result log with individual reset
+- **Current match** — live player list; click any player to focus their full stats card (goals, assists, saves, shots, demos, touches, boost)
+- **OBS overlay** — transparent browser source with live W/L/streak/win-rate; position, scale, and opacity controls
+- **OBS text files** — plain-text files updated live for simple text-based overlays
+- **HTTP API** — `http://127.0.0.1:49410` for custom integrations (also works on LAN for dual-PC setups)
+- **Stats API setup assistant** — detects your RL install and writes `DefaultStatsAPI.ini` for you
+- **System tray** — runs in the background, double-click to restore
+- **Auto-update** — checks for updates via apps.zombie.digital, installs and relaunches in one click
+
+---
+
+## Setup
+
+1. Install via the NSIS setup from the download page, or extract the portable ZIP.
+2. Launch **Rocket Session Stats**.
+3. Go to the **Session** tab → click **Enable Stats API** — it writes the required `DefaultStatsAPI.ini` for you.
+4. Fully close and restart Rocket League.
+5. Play — session stats appear automatically.
+
+### OBS Browser Source
+
+Add a browser source pointed at:
+
+```
+http://127.0.0.1:49410/overlay
+```
+
+Size: `400×160` (default). The background is fully transparent — works with any scene.
+
+For a dual-PC setup, enable **Dual PC Mode** on the Session tab to expose the API on your LAN IP, then use that IP on the streaming PC.
+
+---
+
+## API
+
+The HTTP server runs on port `49410`. Key endpoints:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/session` | GET | Full session snapshot (JSON) |
+| `/api/session/reset` | POST | Reset session totals |
+| `/api/session/reset-history` | POST | Clear match history |
+| `/events` | GET | SSE stream of session updates |
+| `/overlay` | GET | OBS-ready overlay page |
+
+---
+
+## Development
+
+**Prerequisites:** [Rust](https://rustup.rs), [Bun](https://bun.sh), [Tauri v2 prerequisites](https://tauri.app/start/prerequisites/)
 
 ```powershell
 bun install
-bun run dev
+bun run dev        # starts Tauri dev mode (Vite + Rust hot reload)
 ```
 
-This starts both:
-
-- API/session service: `http://127.0.0.1:49410`
-- Control UI: `http://127.0.0.1:49411`
-
-If you want separate terminals:
+UI-only (no native window):
 
 ```powershell
-bun run dev:server
-bun run dev:ui
+bun run dev:ui     # Vite on http://127.0.0.1:49411
 ```
 
-For casual/competitive data testing with terminal logs:
+Type + build check:
 
 ```powershell
-bun run debug
+bun run build
 ```
 
-For full raw payload dumps:
-
-```powershell
-bun run debug:raw
-```
-
-Useful debug env vars:
-
-```powershell
-$env:SESSION_STATS_DEBUG="1"
-$env:SESSION_STATS_DEBUG_RAW="1"
-$env:SESSION_STATS_DEBUG_UPDATE_INTERVAL="1"
-```
-
-`SESSION_STATS_DEBUG_UPDATE_INTERVAL=1` prints every `UpdateState`; the default prints every 30th update so the terminal stays readable.
-
-Open:
-
-- Control view: `http://127.0.0.1:49411`
-- OBS overlay view: `http://127.0.0.1:49411/?overlay=1`
-
-The server expects Rocket League's Stats API at `127.0.0.1:49123`.
-
-Override with:
+The Rust backend connects to Rocket League's Stats API at `127.0.0.1:49123`. Override with:
 
 ```powershell
 $env:STATS_API_ADDR="127.0.0.1:49123"
-$env:SESSION_STATS_PORT="49410"
-bun run dev
 ```
 
-## Testing Unknowns
+---
 
-Verified so far:
+## Release
 
-- Casual games emit `UpdateState`, players, score, clock, live boost, `MatchCreated`, `MatchEnded`, and `MatchDestroyed`.
-- Freeplay/training emits `UpdateState`, one local player, live boost, clock, pause/unpause, `BallHit`, and lifecycle events even with an empty `MatchGuid`.
-- The app auto-selects the only visible player so freeplay/training data is useful without a manual player click.
+Version bumping (updates `VERSION`, `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`):
 
-Use more real casual/competitive games to verify:
+```powershell
+bun run version:patch   # 1.0.0 → 1.0.1
+bun run version:minor   # 1.0.0 → 1.1.0
+bun run version:major   # 1.0.0 → 2.0.0
+```
 
-- whether `MatchEnded.WinnerTeamNum` is present
-- whether `MatchEnded.WinnerTeamNum` matches blue/orange correctly in competitive
-- whether any hidden playlist/ranked metadata appears in raw payloads
+Before publishing, add a `## <version>` section to `PATCH_NOTES.md`. Then:
+
+```powershell
+# 1. Build installer + package artifacts into release/windows/
+bun run release:package
+
+# 2. Sign, generate updater.json + latest.json, upload to apps.zombie.digital
+bun run release:publish
+```
+
+`release:publish` reads credentials from `.env.raspi` (copy from `.env.raspi.example`, fill in `SSH_PASSWORD`).
+
+The signing private key lives at `~/.tauri/rocket-session-stats.key`.
+
+---
+
+## Site integration
+
+The download page should read:
+
+```
+https://apps.zombie.digital/downloads/rocket-session-stats/latest.json
+```
+
+**`latest.json` shape:**
+
+```json
+{
+  "version": "1.0.0",
+  "channel": "stable",
+  "publishedAt": "2026-05-06T00:00:00.000Z",
+  "file": "rocket-session-stats_1.0.0_x64-setup.exe",
+  "notes": "First bullet from patch notes",
+  "notesFile": "notes.md",
+  "files": {
+    "setup": "rocket-session-stats_1.0.0_x64-setup.exe",
+    "portable": "rocket-session-stats_1.0.0_x64_portable.zip"
+  }
+}
+```
+
+All files (installer, portable, SHA256 checksums, full `notes.md`, `updater.json`) are served from the same directory. SHA256 files follow the pattern `<filename>.sha256`.
+
+---
+
+## Credits
+
+Built by **DREADEDZOMBIE** & **TOMLIT**
