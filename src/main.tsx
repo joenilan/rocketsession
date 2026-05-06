@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Layout, type View } from "./components/Layout";
@@ -34,32 +34,15 @@ function OverlayView({ snapshot }: { snapshot: SessionSnapshot }) {
     totals.streak < 0 ? "#f43f5e" :
     "rgb(var(--color-accent-primary))";
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [cardSize, setCardSize] = useState({ w: 260, h: 80 });
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver((entries) => {
-      const r = entries[0]?.contentRect;
-      if (r) setCardSize({ w: r.width, h: r.height });
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
   const s = settings.scale / 100;
-  const halfWpct = (cardSize.w * s) / 2 / window.innerWidth * 100;
-  const halfHpct = (cardSize.h * s) / 2 / window.innerHeight * 100;
-  const cx = Math.min(100 - halfWpct, Math.max(halfWpct, settings.x));
-  const cy = Math.min(100 - halfHpct, Math.max(halfHpct, settings.y));
+  const cx = settings.x;
+  const cy = settings.y;
 
   if (connection !== "connected") return null;
 
   return (
     <div className="ov-shell">
       <div
-        ref={cardRef}
         className="ov-card"
         style={{
           left: `${cx}%`,
@@ -113,12 +96,12 @@ function AppContent() {
 
   return (
     <Layout currentView={currentView} setCurrentView={setCurrentView}>
-      {currentView === "session"  && <SessionView snapshot={snapshot} />}
-      {currentView === "history"  && <HistoryView snapshot={snapshot} />}
-      {currentView === "overlay"  && <OBSView snapshot={snapshot} />}
-      {currentView === "logs"     && <LogsView />}
-      {currentView === "settings" && <SettingsView />}
-      {currentView === "about"    && <AboutView />}
+      <div className={currentView === "session"  ? "h-full" : "hidden"}><SessionView  snapshot={snapshot} /></div>
+      <div className={currentView === "history"  ? "h-full" : "hidden"}><HistoryView  snapshot={snapshot} /></div>
+      <div className={currentView === "overlay"  ? "h-full" : "hidden"}><OBSView      snapshot={snapshot} /></div>
+      <div className={currentView === "logs"     ? "h-full" : "hidden"}><LogsView /></div>
+      <div className={currentView === "settings" ? "h-full" : "hidden"}><SettingsView /></div>
+      <div className={currentView === "about"    ? "h-full" : "hidden"}><AboutView /></div>
     </Layout>
   );
 }
@@ -128,3 +111,13 @@ createRoot(document.getElementById("root")!).render(
     <AppContent />
   </ThemeProvider>,
 );
+
+const bootSplash = document.getElementById("boot-splash");
+if (bootSplash) {
+  requestAnimationFrame(() => {
+    bootSplash.classList.add("boot-splash-hide");
+    const removeSplash = () => bootSplash.remove();
+    bootSplash.addEventListener("transitionend", removeSplash, { once: true });
+    setTimeout(removeSplash, 500);
+  });
+}
