@@ -4,6 +4,7 @@ mod logging;
 mod rl_tcp;
 mod server;
 mod session;
+mod settings;
 mod stats_api_adapter;
 mod stats_config;
 
@@ -19,7 +20,6 @@ use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
 use session::{SessionSnapshot, TrackerCmd};
 
 const HTTP_PORT: u16 = 49410;
-const DEFAULT_STATS_API_ADDR: &str = "127.0.0.1:49123";
 
 // ── Tauri-managed state ───────────────────────────────────────────────────────
 
@@ -166,6 +166,26 @@ async fn cmd_disable_stats_api(path: Option<String>) -> Result<stats_config::Con
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+async fn cmd_get_stats_api_port(state: tauri::State<'_, RssState>) -> Result<u16, String> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || Ok(settings::load(&data_dir).stats_api_port))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn cmd_set_stats_api_port(state: tauri::State<'_, RssState>, port: u16) -> Result<(), String> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut s = settings::load(&data_dir);
+        s.stats_api_port = port;
+        settings::save(&data_dir, &s)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn load_tray_icon() -> tauri::image::Image<'static> {
@@ -222,6 +242,8 @@ fn main() {
             cmd_get_stats_api_config,
             cmd_enable_stats_api,
             cmd_disable_stats_api,
+            cmd_get_stats_api_port,
+            cmd_set_stats_api_port,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -280,9 +302,11 @@ fn main() {
                 log_tx.clone(),
             );
 
-            // ── RL Stats API TCP client (connects on port 49123) ──────────
-            let stats_api_addr = std::env::var("STATS_API_ADDR")
-                .unwrap_or_else(|_| DEFAULT_STATS_API_ADDR.into());
+            // ── RL Stats API TCP client (connects on saved port, default 49123) ──
+            let stats_api_addr = std::env::var("STATS_API_ADDR").unwrap_or_else(|_| {
+                let port = settings::load(&data_dir).stats_api_port;
+                format!("127.0.0.1:{port}")
+            });
             rl_tcp::spawn_rl_client(stats_api_addr, cmd_tx.clone(), log_tx.clone());
 
             // ── HTTP server (Axum on port 49410) ──────────────────────────

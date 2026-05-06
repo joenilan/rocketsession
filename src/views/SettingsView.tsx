@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 import { twMerge } from "tailwind-merge";
+import { invoke } from "@tauri-apps/api/core";
 import { ViewShell } from "../components/ViewShell";
 import { useTheme, type Theme } from "../context/ThemeContext";
 import { getJson, API_BASE } from "../lib/api";
@@ -51,14 +52,19 @@ function ThemeSection() {
 function StatsApiSettings() {
   const [status, setStatus] = useState<StatsApiConfigStatus | null>(null);
   const [rate, setRate] = useState("30");
+  const [port, setPort] = useState("49123");
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const s = await getJson<StatsApiConfigStatus>("/api/stats-api-config");
+      const [s, savedPort] = await Promise.all([
+        getJson<StatsApiConfigStatus>("/api/stats-api-config"),
+        invoke<number>("cmd_get_stats_api_port"),
+      ]);
       setStatus(s);
       if (s.packetSendRate > 0) setRate(String(s.packetSendRate));
+      setPort(String(savedPort));
     } catch { /* network not ready */ }
   }, []);
 
@@ -66,25 +72,37 @@ function StatsApiSettings() {
 
   async function apply() {
     const rateNum = parseFloat(rate);
+    const portNum = parseInt(port, 10);
     if (!isFinite(rateNum) || rateNum <= 0) {
       setFeedback({ ok: false, message: "Packet send rate must be a positive number." });
+      return;
+    }
+    if (!isFinite(portNum) || portNum < 1024 || portNum > 65535) {
+      setFeedback({ ok: false, message: "Port must be between 1024 and 65535." });
       return;
     }
     setLoading(true);
     setFeedback(null);
     try {
-      const res = await fetch(`${API_BASE}/api/stats-api-config/enable`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ packetSendRate: rateNum }),
+      const portChanged = portNum !== 49123 || port !== "49123";
+      await Promise.all([
+        invoke("cmd_set_stats_api_port", { port: portNum }),
+        fetch(`${API_BASE}/api/stats-api-config/enable`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ packetSendRate: rateNum, port: portNum }),
+        }).then(async (res) => {
+          const body = (await res.json()) as StatsApiConfigStatus & { error?: string };
+          if (!res.ok) throw new Error(body.error ?? "Failed to apply.");
+          setStatus(body);
+        }),
+      ]);
+      setFeedback({
+        ok: true,
+        message: portChanged
+          ? "Settings saved. Restart Rocket League and this app to apply the new port."
+          : "Settings applied. Restart Rocket League to take effect.",
       });
-      const body = (await res.json()) as StatsApiConfigStatus & { error?: string };
-      if (!res.ok) {
-        setFeedback({ ok: false, message: body.error ?? "Failed to apply." });
-      } else {
-        setStatus(body);
-        setFeedback({ ok: true, message: "Settings applied. Restart Rocket League to take effect." });
-      }
     } catch (err) {
       setFeedback({ ok: false, message: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -118,21 +136,39 @@ function StatsApiSettings() {
 
       {status?.found && (
         <>
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
-              Packet Send Rate <span className="normal-case tracking-normal text-txt-muted/60">(per second)</span>
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="120"
-              step="1"
-              value={rate}
-              onChange={(e) => setRate(e.currentTarget.value)}
-              disabled={!status?.enabled}
-              className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            />
-            <p className="text-[9px] text-txt-muted font-mono">Default: 30. Higher values update more frequently but use more CPU.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
+                Packet Send Rate <span className="normal-case tracking-normal text-txt-muted/60">(per second)</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                step="1"
+                value={rate}
+                onChange={(e) => setRate(e.currentTarget.value)}
+                disabled={!status?.enabled}
+                className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              />
+              <p className="text-[9px] text-txt-muted font-mono">Default: 30. Higher = more frequent updates.</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
+                Stats API Port
+              </label>
+              <input
+                type="number"
+                min="1024"
+                max="65535"
+                step="1"
+                value={port}
+                onChange={(e) => setPort(e.currentTarget.value)}
+                disabled={!status?.enabled}
+                className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              />
+              <p className="text-[9px] text-txt-muted font-mono">Default: 49123. Only change if that port is in use.</p>
+            </div>
           </div>
 
           <button
