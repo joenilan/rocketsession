@@ -6,6 +6,7 @@ import { resolve, join } from 'node:path'
 const appRoot = resolve(import.meta.dirname, '..')
 const version = readFileSync(resolve(appRoot, 'VERSION'), 'utf8').trim()
 const nsisDir = resolve(appRoot, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
+const msiDir = resolve(appRoot, 'src-tauri', 'target', 'release', 'bundle', 'msi')
 const portableExe = resolve(appRoot, 'src-tauri', 'target', 'release', 'rocket-session-stats.exe')
 const distDir = resolve(appRoot, 'dist')
 const releaseRoot = resolve(appRoot, 'release', 'windows')
@@ -24,6 +25,15 @@ copyFileSync(setupSource, setupTarget)
 const setupSha256 = sha256File(setupTarget)
 writeFileSync(`${setupTarget}.sha256`, `${setupSha256}  ${setupName}\n`)
 packagedArtifacts.push({ kind: 'setup', file: setupName, size: statSync(setupTarget).size, sha256: setupSha256 })
+
+// MSI installer
+const msiSource = findArtifact(msiDir, '.msi')
+const msiName = `${releaseSlug}_${version}_x64.msi`
+const msiTarget = join(releaseRoot, msiName)
+copyFileSync(msiSource, msiTarget)
+const msiSha256 = sha256File(msiTarget)
+writeFileSync(`${msiTarget}.sha256`, `${msiSha256}  ${msiName}\n`)
+packagedArtifacts.push({ kind: 'msi', file: msiName, size: statSync(msiTarget).size, sha256: msiSha256 })
 
 // Portable ZIP — exe + dist folder (needed to serve the OBS overlay)
 const portableName = `${releaseSlug}_${version}_x64_portable.zip`

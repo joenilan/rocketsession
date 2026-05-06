@@ -36,6 +36,7 @@ const remoteDir = `${baseDir.replace(/\/+$/, '')}/${appSlug}`
 
 const setupName = `rocket-session_${version}_x64-setup.exe`
 const setupSigName = `${setupName}.sig`
+const msiName = `rocket-session_${version}_x64.msi`
 const portableName = `rocket-session_${version}_x64_portable.zip`
 const manifestName = 'manifest.json'
 const notesName = 'notes.md'
@@ -68,6 +69,7 @@ const latest = {
   notesFile: notesName,
   files: {
     setup: setupName,
+    msi: msiName,
     portable: portableName,
   },
 }
@@ -97,6 +99,8 @@ const uploadPaths = [
   setupName,
   setupSigName,
   `${setupName}.sha256`,
+  msiName,
+  `${msiName}.sha256`,
   portableName,
   `${portableName}.sha256`,
   manifestName,

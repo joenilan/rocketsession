@@ -39,7 +39,8 @@
     "active": true,
     "publisher": "DreadedZombie",
     "targets": [
-      "nsis"
+      "nsis",
+      "msi"
     ],
     "resources": {
       "../dist": "dist"
@@ -49,6 +50,14 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      },
+      "wix": {
+        "upgradeCode": "25D586E9-DD25-4ABD-AC1D-C5BED31E2386"
+      }
+    }
   }
 }
