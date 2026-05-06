@@ -50,7 +50,7 @@ function OverlayView({ snapshot }: { snapshot: SessionSnapshot }) {
           left: `${cx}%`,
           top: `${cy}%`,
           transform: `translate(-50%, -50%) scale(${s})`,
-          opacity: settings.opacity / 100,
+          "--ov-bg-alpha": String(settings.opacity / 100),
         } as React.CSSProperties}
       >
         <div className="ov-accent-bar" style={{ "--ov-accent": accentColor } as React.CSSProperties} />

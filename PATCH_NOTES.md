@@ -1,3 +1,8 @@
+## 1.0.4
+
+- Restored the stock widget card background while keeping the full OBS/browser-source canvas transparent
+- Stock widget opacity now controls the card background again
+
 ## 1.0.3
 
 - Removed the stock OBS overlay card background, blur, border, and shadow so browser-source overlays stay transparent
