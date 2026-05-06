@@ -192,11 +192,63 @@ const fallbackTeams = () => [
   { name: "Orange", score: 0, color: "#ff8b00" },
 ];
 
+const defaultTextOverlayElements = () => [
+  {
+    id: "wins",
+    label: "Wins:",
+    stat: "wins",
+    showLabel: true,
+    showValue: true,
+    x: 50,
+    y: 50,
+    fontFamily: "Rajdhani, Inter, sans-serif",
+    fontSize: 72,
+    fontWeight: 700,
+    color: "#ffffff",
+    align: "center",
+    opacity: 100,
+  },
+];
+
+function formatStreak(streak) {
+  if (streak > 0) return `W${streak}`;
+  if (streak < 0) return `L${Math.abs(streak)}`;
+  return "0";
+}
+
+function formatTextStat(stat) {
+  switch (stat) {
+    case "wins": return String(state.totals.wins);
+    case "losses": return String(state.totals.losses);
+    case "games": return String(state.totals.games);
+    case "streak": return formatStreak(state.totals.streak);
+    case "winrate": return state.totals.games > 0 ? `${Math.round((state.totals.wins / state.totals.games) * 100)}%` : "0%";
+    case "goals": return String(state.totals.goals);
+    case "assists": return String(state.totals.assists);
+    case "saves": return String(state.totals.saves);
+    case "shots": return String(state.totals.shots);
+    case "demos": return String(state.totals.demos);
+    case "ballHits": return String(state.totals.ballHits);
+    case "strongestHit": return String(Math.round(state.totals.strongestHit));
+    case "trackedPlayer": return state.trackedPlayer?.name ?? "None";
+    default: return null;
+  }
+}
+
 async function saveSession() {
   try {
     await writeFile(
       DATA_FILE,
-      JSON.stringify({ totals: state.totals, trackedPlayer: state.trackedPlayer, lastMatch: state.lastMatch, allowDualPC: state.allowDualPC, matchHistory: state.matchHistory }, null, 2),
+      JSON.stringify({
+        totals: state.totals,
+        trackedPlayer: state.trackedPlayer,
+        lastMatch: state.lastMatch,
+        allowDualPC: state.allowDualPC,
+        matchHistory: state.matchHistory,
+        overlaySettings: state.overlaySettings,
+        overlayMode: state.overlayMode,
+        textOverlayElements: state.textOverlayElements,
+      }, null, 2),
       "utf8",
     );
   } catch (err) {
@@ -219,6 +271,8 @@ async function saveSession() {
       writeTxt("saves.txt", state.totals.saves),
       writeTxt("shots.txt", state.totals.shots),
       writeTxt("demos.txt", state.totals.demos),
+      writeTxt("ball_hits.txt", state.totals.ballHits),
+      writeTxt("strongest_hit.txt", Math.round(state.totals.strongestHit)),
       writeTxt("tracked_player.txt", state.trackedPlayer?.name ?? "None"),
       writeTxt("connection.txt", state.connection)
     ]);
@@ -253,6 +307,15 @@ async function loadSession() {
       if (typeof parsed.allowDualPC === "boolean") {
         state.allowDualPC = parsed.allowDualPC;
       }
+      if (parsed.overlaySettings && typeof parsed.overlaySettings === "object") {
+        state.overlaySettings = { ...state.overlaySettings, ...parsed.overlaySettings };
+      }
+      if (parsed.overlayMode === "stock" || parsed.overlayMode === "textCanvas") {
+        state.overlayMode = parsed.overlayMode;
+      }
+      if (Array.isArray(parsed.textOverlayElements) && parsed.textOverlayElements.length > 0) {
+        state.textOverlayElements = parsed.textOverlayElements;
+      }
       console.log("[session] Restored session from disk.");
     }
   } catch (err) {
@@ -283,6 +346,9 @@ const state = {
   lastMatch: null,
   matchHistory: [],
   rawEventCounts: {},
+  overlaySettings: { x: 50, y: 50, scale: 100, opacity: 90 },
+  overlayMode: "stock",
+  textOverlayElements: defaultTextOverlayElements(),
 };
 
 const clients = new Set();
@@ -655,6 +721,26 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && url.pathname.startsWith("/text/")) {
+    const stat = decodeURIComponent(url.pathname.slice("/text/".length));
+    const value = formatTextStat(stat);
+    if (value === null) {
+      res.writeHead(404, {
+        "content-type": "text/plain; charset=utf-8",
+        "access-control-allow-origin": "*",
+      });
+      res.end("Unknown stat");
+      return;
+    }
+    res.writeHead(200, {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-cache",
+      "access-control-allow-origin": "*",
+    });
+    res.end(value);
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/ips") {
     if (!state.allowDualPC) {
       writeJson(res, 200, { ips: ["127.0.0.1"] });
@@ -710,6 +796,36 @@ const server = createServer(async (req, res) => {
     } catch (e) {
       writeJson(res, 500, { error: String(e) });
     }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/overlay-settings") {
+    const body = await readJson(req);
+    state.overlaySettings = {
+      x: Number.isFinite(body.x) ? Math.min(100, Math.max(0, body.x)) : state.overlaySettings.x,
+      y: Number.isFinite(body.y) ? Math.min(100, Math.max(0, body.y)) : state.overlaySettings.y,
+      scale: Number.isFinite(body.scale) ? Math.min(200, Math.max(50, body.scale)) : state.overlaySettings.scale,
+      opacity: Number.isFinite(body.opacity) ? Math.min(100, Math.max(0, body.opacity)) : state.overlaySettings.opacity,
+    };
+    saveSession().catch(() => undefined);
+    emit();
+    writeJson(res, 200, state);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/overlay-config") {
+    const body = await readJson(req);
+    if (body.overlayMode === "stock" || body.overlayMode === "textCanvas") {
+      state.overlayMode = body.overlayMode;
+    }
+    if (Array.isArray(body.textOverlayElements)) {
+      state.textOverlayElements = body.textOverlayElements.length > 0
+        ? body.textOverlayElements
+        : defaultTextOverlayElements();
+    }
+    saveSession().catch(() => undefined);
+    emit();
+    writeJson(res, 200, state);
     return;
   }
 

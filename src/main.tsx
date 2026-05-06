@@ -9,8 +9,10 @@ import { HistoryView } from "./views/HistoryView";
 import { AboutView } from "./views/AboutView";
 import { LogsView } from "./views/LogsView";
 import { useSessionSnapshot } from "./lib/api";
+import { isTauri } from "./lib/api";
 import { OVERLAY_DEFAULTS } from "./hooks/useOverlaySettings";
 import type { SessionSnapshot } from "./types";
+import { TextCanvasOverlay } from "./components/TextCanvasOverlay";
 import "./styles.css";
 
 function OverlayView({ snapshot }: { snapshot: SessionSnapshot }) {
@@ -88,10 +90,14 @@ function OverlayView({ snapshot }: { snapshot: SessionSnapshot }) {
 function AppContent() {
   const snapshot = useSessionSnapshot();
   const [currentView, setCurrentView] = useState<View>("session");
+  const params = new URLSearchParams(window.location.search);
 
-  if (new URLSearchParams(window.location.search).get("overlay") === "1") {
+  if (!isTauri || params.get("overlay") === "1") {
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
+    if (params.get("overlay") !== "1" && snapshot.overlayMode === "textCanvas") {
+      return <TextCanvasOverlay snapshot={snapshot} />;
+    }
     return <OverlayView snapshot={snapshot} />;
   }
 

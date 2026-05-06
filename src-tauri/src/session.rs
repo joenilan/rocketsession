@@ -122,7 +122,50 @@ pub struct OverlaySettings {
 }
 impl Default for OverlaySettings {
     fn default() -> Self {
-        Self { x: 50.0, y: 50.0, scale: 100.0, opacity: 90.0 }
+        Self {
+            x: 50.0,
+            y: 50.0,
+            scale: 100.0,
+            opacity: 90.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextOverlayElement {
+    pub id: String,
+    pub label: String,
+    pub stat: String,
+    pub show_label: bool,
+    pub show_value: bool,
+    pub x: f64,
+    pub y: f64,
+    pub font_family: String,
+    pub font_size: f64,
+    pub font_weight: u16,
+    pub color: String,
+    pub align: String,
+    pub opacity: f64,
+}
+
+impl Default for TextOverlayElement {
+    fn default() -> Self {
+        Self {
+            id: "wins".to_string(),
+            label: "Wins:".to_string(),
+            stat: "wins".to_string(),
+            show_label: true,
+            show_value: true,
+            x: 50.0,
+            y: 50.0,
+            font_family: "Rajdhani, Inter, sans-serif".to_string(),
+            font_size: 72.0,
+            font_weight: 700,
+            color: "#ffffff".to_string(),
+            align: "center".to_string(),
+            opacity: 100.0,
+        }
     }
 }
 
@@ -162,6 +205,8 @@ pub struct SessionSnapshot {
     pub match_history: Vec<HistoricalMatch>,
     pub raw_event_counts: HashMap<String, u32>,
     pub overlay_settings: OverlaySettings,
+    pub overlay_mode: String,
+    pub text_overlay_elements: Vec<TextOverlayElement>,
 }
 impl Default for SessionSnapshot {
     fn default() -> Self {
@@ -179,6 +224,8 @@ impl Default for SessionSnapshot {
             match_history: vec![],
             raw_event_counts: HashMap::new(),
             overlay_settings: OverlaySettings::default(),
+            overlay_mode: "stock".to_string(),
+            text_overlay_elements: vec![TextOverlayElement::default()],
         }
     }
 }
@@ -195,6 +242,8 @@ struct PersistedSession {
     allow_dual_pc: bool,
     match_history: Vec<HistoricalMatch>,
     overlay_settings: OverlaySettings,
+    overlay_mode: String,
+    text_overlay_elements: Vec<TextOverlayElement>,
 }
 
 fn do_persist(data_dir: &PathBuf, snap: &SessionSnapshot) {
@@ -205,6 +254,8 @@ fn do_persist(data_dir: &PathBuf, snap: &SessionSnapshot) {
         allow_dual_pc: snap.allow_dual_pc,
         match_history: snap.match_history.clone(),
         overlay_settings: snap.overlay_settings.clone(),
+        overlay_mode: snap.overlay_mode.clone(),
+        text_overlay_elements: snap.text_overlay_elements.clone(),
     };
     if let Ok(json) = serde_json::to_string_pretty(&p) {
         let _ = std::fs::write(data_dir.join("session-data.json"), json);
@@ -237,6 +288,11 @@ fn write_obs_files(data_dir: &PathBuf, snap: &SessionSnapshot) {
         ("saves.txt", snap.totals.saves.to_string()),
         ("shots.txt", snap.totals.shots.to_string()),
         ("demos.txt", snap.totals.demos.to_string()),
+        ("ball_hits.txt", snap.totals.ball_hits.to_string()),
+        (
+            "strongest_hit.txt",
+            snap.totals.strongest_hit.round().to_string(),
+        ),
         ("tracked_player.txt", player_name),
         ("connection.txt", snap.connection.clone()),
     ];
@@ -253,12 +309,18 @@ pub enum TrackerCmd {
     SetTrackedPlayer(String),
     SetAllowDualPc(bool),
     SetOverlaySettings(OverlaySettings),
-    SetConnection { connection: String, message: String },
+    SetOverlayConfig {
+        overlay_mode: Option<String>,
+        text_overlay_elements: Option<Vec<TextOverlayElement>>,
+    },
+    SetConnection {
+        connection: String,
+        message: String,
+    },
     RawEvent(String),
 }
 
 // ── Internal tracker ──────────────────────────────────────────────────────────
-
 
 struct Tracker {
     snap: SessionSnapshot,
@@ -272,6 +334,16 @@ impl Tracker {
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or_default();
         let history = VecDeque::from(p.match_history.clone());
+        let overlay_mode = if p.overlay_mode == "textCanvas" {
+            "textCanvas".to_string()
+        } else {
+            "stock".to_string()
+        };
+        let text_overlay_elements = if p.text_overlay_elements.is_empty() {
+            vec![TextOverlayElement::default()]
+        } else {
+            p.text_overlay_elements
+        };
         let snap = SessionSnapshot {
             totals: p.totals,
             tracked_player: p.tracked_player,
@@ -279,6 +351,8 @@ impl Tracker {
             allow_dual_pc: p.allow_dual_pc,
             match_history: p.match_history,
             overlay_settings: p.overlay_settings,
+            overlay_mode,
+            text_overlay_elements,
             ..SessionSnapshot::default()
         };
         Self { snap, history }
@@ -292,8 +366,10 @@ impl Tracker {
         self.snap.current_match.active = true;
 
         if let Some(game) = data.get("game") {
-            self.snap.current_match.time_seconds =
-                game.get("time_seconds").and_then(Value::as_f64).unwrap_or(0.0);
+            self.snap.current_match.time_seconds = game
+                .get("time_seconds")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             self.snap.current_match.is_ot =
                 game.get("isOT").and_then(Value::as_bool).unwrap_or(false);
 
@@ -307,7 +383,11 @@ impl Tracker {
                             t.score = s as u32;
                         }
                         if let Some(c) = team.get("color_primary").and_then(Value::as_str) {
-                            t.color = if c.starts_with('#') { c.to_string() } else { format!("#{c}") };
+                            t.color = if c.starts_with('#') {
+                                c.to_string()
+                            } else {
+                                format!("#{c}")
+                            };
                         }
                     }
                 }
@@ -315,11 +395,23 @@ impl Tracker {
 
             // Auto-track via the Stats API "target" field (local player)
             if self.snap.tracked_player.is_none() {
-                if let Some(tid) = game.get("target").and_then(Value::as_str).filter(|s| !s.is_empty()) {
-                    if let Some(p) = data.get("players").and_then(Value::as_object).and_then(|m| m.get(tid)) {
+                if let Some(tid) = game
+                    .get("target")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                {
+                    if let Some(p) = data
+                        .get("players")
+                        .and_then(Value::as_object)
+                        .and_then(|m| m.get(tid))
+                    {
                         self.snap.tracked_player = Some(TrackedPlayer {
                             id: tid.to_string(),
-                            name: p.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+                            name: p
+                                .get("name")
+                                .and_then(Value::as_str)
+                                .unwrap_or("")
+                                .to_string(),
                             team: p.get("team").and_then(Value::as_u64).unwrap_or(0) as u8,
                         });
                     }
@@ -332,19 +424,25 @@ impl Tracker {
                 .values()
                 .filter_map(|p| {
                     let team = p.get("team").and_then(Value::as_u64)? as u8;
-                    if team > 1 { return None; }
+                    if team > 1 {
+                        return None;
+                    }
                     Some(SessionPlayer {
                         id: p.get("id").and_then(Value::as_str)?.to_string(),
-                        name: p.get("name").and_then(Value::as_str).unwrap_or("").to_string(),
+                        name: p
+                            .get("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
                         team,
-                        score:   p.get("score").and_then(Value::as_u64).unwrap_or(0) as u32,
-                        goals:   p.get("goals").and_then(Value::as_u64).unwrap_or(0) as u32,
+                        score: p.get("score").and_then(Value::as_u64).unwrap_or(0) as u32,
+                        goals: p.get("goals").and_then(Value::as_u64).unwrap_or(0) as u32,
                         assists: p.get("assists").and_then(Value::as_u64).unwrap_or(0) as u32,
-                        saves:   p.get("saves").and_then(Value::as_u64).unwrap_or(0) as u32,
-                        shots:   p.get("shots").and_then(Value::as_u64).unwrap_or(0) as u32,
-                        demos:   p.get("demos").and_then(Value::as_u64).unwrap_or(0) as u32,
+                        saves: p.get("saves").and_then(Value::as_u64).unwrap_or(0) as u32,
+                        shots: p.get("shots").and_then(Value::as_u64).unwrap_or(0) as u32,
+                        demos: p.get("demos").and_then(Value::as_u64).unwrap_or(0) as u32,
                         touches: p.get("touches").and_then(Value::as_u64).unwrap_or(0) as u32,
-                        boost:   p.get("boost").and_then(Value::as_f64),
+                        boost: p.get("boost").and_then(Value::as_f64),
                     })
                 })
                 .collect();
@@ -363,7 +461,13 @@ impl Tracker {
 
         // Keep tracked_team in sync
         if let Some(ref tp) = self.snap.tracked_player.clone() {
-            if let Some(live) = self.snap.current_match.players.iter().find(|p| p.id == tp.id) {
+            if let Some(live) = self
+                .snap
+                .current_match
+                .players
+                .iter()
+                .find(|p| p.id == tp.id)
+            {
                 self.snap.current_match.tracked_team = Some(live.team);
                 if let Some(ref mut t) = self.snap.tracked_player {
                     t.team = live.team;
@@ -490,7 +594,10 @@ pub fn spawn_session_tracker(
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<TrackerCmd>();
 
     tauri::async_runtime::spawn(async move {
-        let _ = log_tx.send(crate::logging::LogEntry::info("session", "Session tracker started"));
+        let _ = log_tx.send(crate::logging::LogEntry::info(
+            "session",
+            "Session tracker started",
+        ));
         let mut tracker = Tracker::load(&data_dir);
 
         // Emit initial state
@@ -508,14 +615,20 @@ pub fn spawn_session_tracker(
 
             match cmd {
                 TrackerCmd::Reset => {
-                    let _ = log_tx.send(crate::logging::LogEntry::info("session", "Session stats reset"));
+                    let _ = log_tx.send(crate::logging::LogEntry::info(
+                        "session",
+                        "Session stats reset",
+                    ));
                     tracker.snap.totals = SessionTotals::default();
                     tracker.snap.last_match = None;
                     tracker.snap.raw_event_counts.clear();
                     needs_persist = true;
                 }
                 TrackerCmd::ResetHistory => {
-                    let _ = log_tx.send(crate::logging::LogEntry::info("session", "Match history cleared"));
+                    let _ = log_tx.send(crate::logging::LogEntry::info(
+                        "session",
+                        "Match history cleared",
+                    ));
                     tracker.history.clear();
                     tracker.sync_history();
                     needs_persist = true;
@@ -544,6 +657,26 @@ pub fn spawn_session_tracker(
                 }
                 TrackerCmd::SetOverlaySettings(s) => {
                     tracker.snap.overlay_settings = s;
+                    needs_persist = true;
+                }
+                TrackerCmd::SetOverlayConfig {
+                    overlay_mode,
+                    text_overlay_elements,
+                } => {
+                    if let Some(mode) = overlay_mode {
+                        tracker.snap.overlay_mode = if mode == "textCanvas" {
+                            "textCanvas".to_string()
+                        } else {
+                            "stock".to_string()
+                        };
+                    }
+                    if let Some(elements) = text_overlay_elements {
+                        tracker.snap.text_overlay_elements = if elements.is_empty() {
+                            vec![TextOverlayElement::default()]
+                        } else {
+                            elements
+                        };
+                    }
                     needs_persist = true;
                 }
                 TrackerCmd::SetConnection {
@@ -580,16 +713,21 @@ pub fn spawn_session_tracker(
                     match event_name.as_str() {
                         "game:update_state" => tracker.on_update_state(&data),
                         "game:match_created" | "game:initialized" => {
-                            let _ = log_tx.send(crate::logging::LogEntry::info("session", format!("Match created: {event_name}")));
+                            let _ = log_tx.send(crate::logging::LogEntry::info(
+                                "session",
+                                format!("Match created: {event_name}"),
+                            ));
                             tracker.on_match_created(&data);
                         }
                         "game:match_ended" => {
-                            let _ = log_tx.send(crate::logging::LogEntry::info("session", "Match ended"));
+                            let _ = log_tx
+                                .send(crate::logging::LogEntry::info("session", "Match ended"));
                             tracker.on_match_ended(&data);
                             needs_persist = true;
                         }
                         "game:match_destroyed" => {
-                            let _ = log_tx.send(crate::logging::LogEntry::info("session", "Match destroyed"));
+                            let _ = log_tx
+                                .send(crate::logging::LogEntry::info("session", "Match destroyed"));
                             tracker.on_match_destroyed();
                             needs_persist = true;
                         }

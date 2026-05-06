@@ -19,7 +19,8 @@ The installer, portable ZIP, and patch notes are published there on every releas
 - **Session totals** — wins, losses, win rate, current streak
 - **Match history** — per-game result log with individual reset
 - **Current match** — live player list; click any player to focus their full stats card (goals, assists, saves, shots, demos, touches, boost)
-- **OBS overlay** — transparent browser source with live W/L/streak/win-rate; position, scale, and opacity controls
+- **OBS overlay** — one transparent browser source that can render the stock widget or a custom text canvas
+- **Text Overlay Studio** — build a font-controlled stat canvas with labels, live values, position, color, size, and opacity controls
 - **OBS text files** — plain-text files updated live for simple text-based overlays
 - **HTTP API** — `http://127.0.0.1:49410` for custom integrations (also works on LAN for dual-PC setups)
 - **Stats API setup assistant** — detects your RL install and writes `DefaultStatsAPI.ini` for you
@@ -41,10 +42,10 @@ The installer, portable ZIP, and patch notes are published there on every releas
 Add a browser source pointed at:
 
 ```
-http://127.0.0.1:49410/overlay
+http://127.0.0.1:49410/
 ```
 
-Size: `400×160` (default). The background is fully transparent — works with any scene.
+Size: `1920×1080` for the text canvas, or your preferred widget bounds for the stock overlay. The background is fully transparent — works with any scene.
 
 For a dual-PC setup, enable **Dual PC Mode** on the Session tab to expose the API on your LAN IP, then use that IP on the streaming PC.
 
@@ -59,8 +60,11 @@ The HTTP server runs on port `49410`. Key endpoints:
 | `/api/session` | GET | Full session snapshot (JSON) |
 | `/api/session/reset` | POST | Reset session totals |
 | `/api/session/reset-history` | POST | Clear match history |
-| `/events` | GET | SSE stream of session updates |
-| `/overlay` | GET | OBS-ready overlay page |
+| `/api/events` | GET | SSE stream of session updates |
+| `/api/overlay-settings` | POST | Update stock overlay position/scale/opacity |
+| `/api/overlay-config` | POST | Update selected overlay mode and text canvas elements |
+| `/text/<stat>` | GET | Raw text stat value, e.g. `/text/wins`, `/text/streak`, `/text/winrate` |
+| `/` | GET | OBS-ready overlay page using the saved overlay mode |
 
 ---
 

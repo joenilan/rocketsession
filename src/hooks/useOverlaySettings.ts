@@ -11,7 +11,7 @@ function clamp(v: number, min: number, max: number) {
 }
 
 export function buildOverlayUrl(baseUrl: string): string {
-  return `${baseUrl}/?overlay=1`;
+  return `${baseUrl}/`;
 }
 
 // rAF-batched poster — call as many times as you want, only one POST per frame

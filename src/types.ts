@@ -84,6 +84,39 @@ export type OverlaySettings = {
   opacity: number;
 };
 
+export type OverlayMode = "stock" | "textCanvas";
+
+export type TextStatKey =
+  | "wins"
+  | "losses"
+  | "games"
+  | "streak"
+  | "winrate"
+  | "goals"
+  | "assists"
+  | "saves"
+  | "shots"
+  | "demos"
+  | "ballHits"
+  | "strongestHit"
+  | "trackedPlayer";
+
+export type TextOverlayElement = {
+  id: string;
+  label: string;
+  stat: TextStatKey;
+  showLabel: boolean;
+  showValue: boolean;
+  x: number;
+  y: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  color: string;
+  align: "left" | "center" | "right";
+  opacity: number;
+};
+
 export type SessionSnapshot = {
   app: "rocket-session-stats";
   connection: ConnectionState;
@@ -98,4 +131,6 @@ export type SessionSnapshot = {
   matchHistory: HistoricalMatch[];
   rawEventCounts: Record<string, number>;
   overlaySettings: OverlaySettings;
+  overlayMode: OverlayMode;
+  textOverlayElements: TextOverlayElement[];
 };

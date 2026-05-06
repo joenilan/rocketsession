@@ -48,6 +48,18 @@ function bumpVersion(current, bumpType) {
   return `${major}.${minor}.${patch}`;
 }
 
+function readCurrentVersion() {
+  if (fs.existsSync(VERSION_FILE)) {
+    const version = fs.readFileSync(VERSION_FILE, "utf8").trim();
+    if (version) return version;
+  }
+  const pkg = JSON.parse(fs.readFileSync(ROOT_PKG, "utf8"));
+  return String(pkg.version || "").trim();
+}
+
+let oldVersion = readCurrentVersion();
+validateSemver(oldVersion);
+
 if (type === "check-notes") {
   const PATCH_NOTES = path.join(APP_ROOT, "PATCH_NOTES.md");
   const patchNotesSource = fs.existsSync(PATCH_NOTES) ? fs.readFileSync(PATCH_NOTES, "utf8") : "";
@@ -64,16 +76,6 @@ if (!["patch", "minor", "major", "sync"].includes(type)) {
   console.error(`Unknown version command "${type}". Use patch, minor, major, sync, or check-notes.`);
   process.exit(1);
 }
-
-let oldVersion = null;
-if (fs.existsSync(VERSION_FILE)) {
-  oldVersion = fs.readFileSync(VERSION_FILE, "utf8").trim();
-}
-if (!oldVersion) {
-  const pkg = JSON.parse(fs.readFileSync(ROOT_PKG, "utf8"));
-  oldVersion = String(pkg.version || "").trim();
-}
-validateSemver(oldVersion);
 
 const newVersion = type === "sync" ? oldVersion : bumpVersion(oldVersion, type);
 console.log(`Bumping version ${oldVersion} -> ${newVersion} (${type})`);

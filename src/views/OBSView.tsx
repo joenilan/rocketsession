@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Layers, Copy, Check, FolderOpen } from "lucide-react";
+import { Layers, Copy, Check, FolderOpen, Plus, Trash2, Type } from "lucide-react";
 import { ViewShell } from "../components/ViewShell";
 import { getJson, postJson } from "../lib/api";
 import { buildOverlayUrl, useOverlayPoster, clampOverlay, OVERLAY_DEFAULTS } from "../hooks/useOverlaySettings";
-import type { SessionSnapshot, OverlaySettings } from "../types";
+import { TextCanvasOverlay } from "../components/TextCanvasOverlay";
+import { DEFAULT_TEXT_OVERLAY_ELEMENT, TEXT_STAT_OPTIONS } from "../lib/stats";
+import type { SessionSnapshot, OverlaySettings, OverlayMode, TextOverlayElement, TextStatKey } from "../types";
 
 function Slider({
   label, value, min, max, unit = "", onChange,
@@ -37,6 +39,18 @@ function Slider({
   );
 }
 
+function textElementDefaults(index: number): TextOverlayElement {
+  const option = TEXT_STAT_OPTIONS[index % TEXT_STAT_OPTIONS.length];
+  return {
+    ...DEFAULT_TEXT_OVERLAY_ELEMENT,
+    id: `${option.key}-${Date.now()}`,
+    stat: option.key,
+    label: option.defaultLabel,
+    x: 50,
+    y: 42 + index * 10,
+  };
+}
+
 export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
   const [copied, setCopied] = useState(false);
   const [ip, setIp] = useState("127.0.0.1");
@@ -44,9 +58,14 @@ export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
   // Local mirror of overlay settings for immediate slider feedback
   const [local, setLocal] = useState<OverlaySettings>(() => snapshot.overlaySettings ?? OVERLAY_DEFAULTS);
   const postSettings = useOverlayPoster();
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>(() => snapshot.overlayMode ?? "stock");
+  const [textElements, setTextElements] = useState<TextOverlayElement[]>(() =>
+    snapshot.textOverlayElements?.length ? snapshot.textOverlayElements : [DEFAULT_TEXT_OVERLAY_ELEMENT]
+  );
 
   // Keep local in sync when SSE pushes an update from another source
   const lastSnapshotRef = useRef<OverlaySettings | null>(null);
+  const lastTextRef = useRef<string>("");
   useEffect(() => {
     const s = snapshot.overlaySettings;
     if (!s) return;
@@ -58,6 +77,16 @@ export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
   }, [snapshot.overlaySettings]);
 
   useEffect(() => {
+    setOverlayMode(snapshot.overlayMode ?? "stock");
+    const next = snapshot.textOverlayElements?.length ? snapshot.textOverlayElements : [DEFAULT_TEXT_OVERLAY_ELEMENT];
+    const encoded = JSON.stringify(next);
+    if (encoded !== lastTextRef.current) {
+      lastTextRef.current = encoded;
+      setTextElements(next);
+    }
+  }, [snapshot.overlayMode, snapshot.textOverlayElements]);
+
+  useEffect(() => {
     getJson<{ ips: string[] }>("/api/ips")
       .then((res) => { if (res.ips?.[0]) setIp(res.ips[0]); })
       .catch(() => undefined);
@@ -65,6 +94,49 @@ export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
 
   const baseUrl = `http://${ip}:49410`;
   const overlayUrl = buildOverlayUrl(baseUrl);
+
+  function saveOverlayConfig(nextMode: OverlayMode, nextElements = textElements) {
+    void postJson("/api/overlay-config", {
+      overlayMode: nextMode,
+      textOverlayElements: nextElements,
+    });
+  }
+
+  function updateOverlayMode(nextMode: OverlayMode) {
+    setOverlayMode(nextMode);
+    saveOverlayConfig(nextMode);
+  }
+
+  function updateTextElement(id: string, patch: Partial<TextOverlayElement>) {
+    const next = textElements.map((element) => {
+      if (element.id !== id) return element;
+      const merged = { ...element, ...patch };
+      return {
+        ...merged,
+        x: clampOverlay(merged.x, 0, 100),
+        y: clampOverlay(merged.y, 0, 100),
+        fontSize: clampOverlay(merged.fontSize, 10, 240),
+        fontWeight: clampOverlay(merged.fontWeight, 100, 900),
+        opacity: clampOverlay(merged.opacity, 0, 100),
+      };
+    });
+    setTextElements(next);
+    saveOverlayConfig(overlayMode, next);
+  }
+
+  function addTextElement() {
+    const next = [...textElements, textElementDefaults(textElements.length)];
+    setTextElements(next);
+    saveOverlayConfig("textCanvas", next);
+    setOverlayMode("textCanvas");
+  }
+
+  function removeTextElement(id: string) {
+    const next = textElements.filter((element) => element.id !== id);
+    const safe = next.length > 0 ? next : [DEFAULT_TEXT_OVERLAY_ELEMENT];
+    setTextElements(safe);
+    saveOverlayConfig(overlayMode, safe);
+  }
 
   function update(patch: Partial<OverlaySettings>) {
     const next: OverlaySettings = {
@@ -94,9 +166,37 @@ export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
   return (
     <ViewShell
       title="Overlay"
-      subtitle="Configure and add the stats widget to OBS Studio."
+      subtitle="Configure the single OBS browser source."
       icon={Layers}
     >
+      {/* Overlay Mode */}
+      <div className="bg-surface-card/60 border border-txt-primary/10 rounded-xl p-4 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Overlay Mode</p>
+            <p className="text-xs text-txt-secondary mt-1">OBS uses one URL. Pick what that URL renders.</p>
+          </div>
+          <div className="flex rounded-lg border border-txt-primary/10 bg-surface-base/50 p-1">
+            {([
+              ["stock", "Stock Widget"],
+              ["textCanvas", "Text Canvas"],
+            ] as Array<[OverlayMode, string]>).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => updateOverlayMode(mode)}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider transition-all ${
+                  overlayMode === mode
+                    ? "bg-accent text-black"
+                    : "text-txt-muted hover:text-txt-primary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Position, Scale & Opacity */}
       <div className="bg-surface-card/60 border border-txt-primary/10 rounded-xl p-4 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
         <div className="flex items-center justify-between">
@@ -159,6 +259,127 @@ export function OBSView({ snapshot }: { snapshot: SessionSnapshot }) {
           <p className="text-[8px] font-mono text-txt-muted/50 text-center">
             Widget preview updates live. OBS moves in real-time — no re-copy needed.
           </p>
+        </div>
+      </div>
+
+      {/* Text Canvas Studio */}
+      <div className="bg-surface-card/60 border border-txt-primary/10 rounded-xl p-4 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted flex items-center gap-2">
+              <Type size={12} /> Text Canvas Studio
+            </p>
+            <p className="text-xs text-txt-secondary mt-1">Build one browser-source canvas from labels and live stats.</p>
+          </div>
+          <button
+            onClick={addTextElement}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-txt-primary/15 bg-txt-primary/5 text-txt-secondary text-xs font-semibold hover:text-txt-primary hover:border-txt-primary/30 transition-all shrink-0"
+          >
+            <Plus size={12} />
+            Add Text
+          </button>
+        </div>
+
+        <div
+          className="relative rounded-lg border border-txt-primary/15 bg-surface-base/60 overflow-hidden"
+          style={{ height: 180 }}
+        >
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+            backgroundSize: "12.5% 12.5%",
+          }} />
+          <TextCanvasOverlay snapshot={{ ...snapshot, textOverlayElements: textElements }} elements={textElements} preview />
+        </div>
+
+        <div className="space-y-3">
+          {textElements.map((element, index) => (
+            <div key={element.id} className="rounded-lg border border-txt-primary/10 bg-surface-base/40 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Element {index + 1}</p>
+                <button
+                  onClick={() => removeTextElement(element.id)}
+                  className="h-7 w-7 rounded-md border border-txt-primary/10 text-txt-muted hover:text-red-300 hover:border-red-300/40 transition-colors grid place-items-center"
+                  title="Remove text element"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Label</span>
+                  <input
+                    value={element.label}
+                    onChange={(e) => updateTextElement(element.id, { label: e.currentTarget.value })}
+                    className="path-input !text-xs !py-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Stat</span>
+                  <select
+                    value={element.stat}
+                    onChange={(e) => {
+                      const stat = e.currentTarget.value as TextStatKey;
+                      const option = TEXT_STAT_OPTIONS.find((entry) => entry.key === stat);
+                      updateTextElement(element.id, { stat, label: option?.defaultLabel ?? element.label });
+                    }}
+                    className="path-input !text-xs !py-2"
+                  >
+                    {TEXT_STAT_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Slider label="X" value={element.x} min={0} max={100} unit="%" onChange={(v) => updateTextElement(element.id, { x: v })} />
+                <Slider label="Y" value={element.y} min={0} max={100} unit="%" onChange={(v) => updateTextElement(element.id, { y: v })} />
+                <Slider label="Size" value={element.fontSize} min={10} max={240} onChange={(v) => updateTextElement(element.id, { fontSize: v })} />
+                <Slider label="Opacity" value={element.opacity} min={0} max={100} unit="%" onChange={(v) => updateTextElement(element.id, { opacity: v })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Font</span>
+                  <input
+                    value={element.fontFamily}
+                    onChange={(e) => updateTextElement(element.id, { fontFamily: e.currentTarget.value })}
+                    placeholder="Rajdhani, Inter, sans-serif"
+                    className="path-input !text-xs !py-2"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Color</span>
+                  <input
+                    type="color"
+                    value={element.color}
+                    onChange={(e) => updateTextElement(element.id, { color: e.currentTarget.value })}
+                    className="h-9 w-full rounded-lg border border-txt-primary/10 bg-surface-base/60 p-1"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs text-txt-secondary">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={element.showLabel}
+                    onChange={(e) => updateTextElement(element.id, { showLabel: e.currentTarget.checked })}
+                  />
+                  Show label
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={element.showValue}
+                    onChange={(e) => updateTextElement(element.id, { showValue: e.currentTarget.checked })}
+                  />
+                  Show value
+                </label>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

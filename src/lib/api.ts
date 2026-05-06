@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { SessionSnapshot } from "../types";
+import { DEFAULT_TEXT_OVERLAY_ELEMENT } from "./stats";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -51,6 +52,8 @@ const initialSnapshot: SessionSnapshot = {
   matchHistory: [],
   rawEventCounts: {},
   overlaySettings: { x: 50, y: 50, scale: 100, opacity: 90 },
+  overlayMode: "stock",
+  textOverlayElements: [DEFAULT_TEXT_OVERLAY_ELEMENT],
 };
 
 export function useSessionSnapshot() {
