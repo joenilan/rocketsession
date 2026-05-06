@@ -12,8 +12,13 @@ const distDir = resolve(appRoot, 'dist')
 const releaseRoot = resolve(appRoot, 'release', 'windows')
 const releaseSlug = 'rocket-session'
 
-rmSync(releaseRoot, { recursive: true, force: true })
+// Clear existing files individually (avoids EPERM on Windows when dir itself is locked)
 mkdirSync(releaseRoot, { recursive: true })
+try {
+  for (const entry of readdirSync(releaseRoot, { withFileTypes: true })) {
+    rmSync(join(releaseRoot, entry.name), { recursive: true, force: true })
+  }
+} catch { /* ignore — files will be overwritten anyway */ }
 
 const packagedArtifacts = []
 

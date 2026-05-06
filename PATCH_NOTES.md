@@ -1,3 +1,9 @@
+## 1.0.1
+
+- Stats API port is now configurable in Settings for users who have port 49123 in use
+- Removed broken port field that wrote the INI without updating the app connection
+- Port preference persists across restarts via settings.json in app data dir
+
 ## 1.0.0
 
 - Initial public release
