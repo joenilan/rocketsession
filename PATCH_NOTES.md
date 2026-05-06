@@ -1,3 +1,9 @@
+## 1.0.3
+
+- Removed the stock OBS overlay card background, blur, border, and shadow so browser-source overlays stay transparent
+- Stock overlay opacity now controls the widget text/group opacity instead of a gray card surface
+- Removed the full-page boot/root dark background from OBS/browser-source overlay mode
+
 ## 1.0.2
 
 - OBS now uses one root browser-source URL that renders the saved overlay mode

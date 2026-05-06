@@ -173,6 +173,12 @@ body {
     rgb(var(--color-bg-base));
 }
 
+html.overlay-runtime,
+html.overlay-runtime body,
+html.overlay-runtime #root {
+  background: transparent !important;
+}
+
 button { font: inherit; cursor: pointer; }
 h1, h2, p { margin: 0; }
 h1, h2 { font-family: var(--font-primary); }
@@ -506,15 +512,6 @@ code {
   min-width: 260px;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-base);
-  border: 1px solid rgb(var(--color-text-primary) / 0.16);
-  background: rgb(var(--color-bg-base) / var(--ov-bg-alpha, 0.90));
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow:
-    0 12px 48px rgba(0, 0, 0, 0.75),
-    0 2px 8px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
   transform-origin: center center;
 }

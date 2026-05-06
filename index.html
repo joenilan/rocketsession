@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rocket Session Stats</title>
+    <script>
+      (() => {
+        const params = new URLSearchParams(window.location.search);
+        const isTauri = "__TAURI_INTERNALS__" in window;
+        if (!isTauri || params.get("overlay") === "1") {
+          document.documentElement.classList.add("overlay-runtime");
+        }
+      })();
+    </script>
     <style>
       html {
         height: 100%;
@@ -13,6 +22,14 @@
         margin: 0;
         background: #09090b;
         color: #fafafa;
+      }
+      html.overlay-runtime,
+      html.overlay-runtime body,
+      html.overlay-runtime #root {
+        background: transparent !important;
+      }
+      html.overlay-runtime #boot-splash {
+        display: none;
       }
       #boot-splash {
         position: fixed;

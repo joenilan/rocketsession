@@ -50,7 +50,7 @@ function OverlayView({ snapshot }: { snapshot: SessionSnapshot }) {
           left: `${cx}%`,
           top: `${cy}%`,
           transform: `translate(-50%, -50%) scale(${s})`,
-          "--ov-bg-alpha": String(settings.opacity / 100),
+          opacity: settings.opacity / 100,
         } as React.CSSProperties}
       >
         <div className="ov-accent-bar" style={{ "--ov-accent": accentColor } as React.CSSProperties} />
@@ -93,6 +93,7 @@ function AppContent() {
   const params = new URLSearchParams(window.location.search);
 
   if (!isTauri || params.get("overlay") === "1") {
+    document.documentElement.classList.add("overlay-runtime");
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
     if (params.get("overlay") !== "1" && snapshot.overlayMode === "textCanvas") {
