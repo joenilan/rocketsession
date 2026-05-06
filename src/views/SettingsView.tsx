@@ -51,7 +51,6 @@ function ThemeSection() {
 function StatsApiSettings() {
   const [status, setStatus] = useState<StatsApiConfigStatus | null>(null);
   const [rate, setRate] = useState("30");
-  const [port, setPort] = useState("49123");
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -60,7 +59,6 @@ function StatsApiSettings() {
       const s = await getJson<StatsApiConfigStatus>("/api/stats-api-config");
       setStatus(s);
       if (s.packetSendRate > 0) setRate(String(s.packetSendRate));
-      if (s.port) setPort(String(s.port));
     } catch { /* network not ready */ }
   }, []);
 
@@ -68,13 +66,8 @@ function StatsApiSettings() {
 
   async function apply() {
     const rateNum = parseFloat(rate);
-    const portNum = parseInt(port, 10);
     if (!isFinite(rateNum) || rateNum <= 0) {
       setFeedback({ ok: false, message: "Packet send rate must be a positive number." });
-      return;
-    }
-    if (!isFinite(portNum) || portNum < 1024 || portNum > 65535) {
-      setFeedback({ ok: false, message: "Port must be between 1024 and 65535." });
       return;
     }
     setLoading(true);
@@ -83,7 +76,7 @@ function StatsApiSettings() {
       const res = await fetch(`${API_BASE}/api/stats-api-config/enable`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ packetSendRate: rateNum, port: portNum }),
+        body: JSON.stringify({ packetSendRate: rateNum }),
       });
       const body = (await res.json()) as StatsApiConfigStatus & { error?: string };
       if (!res.ok) {
@@ -125,39 +118,21 @@ function StatsApiSettings() {
 
       {status?.found && (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
-                Packet Send Rate <span className="normal-case tracking-normal text-txt-muted/60">(per second)</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="120"
-                step="1"
-                value={rate}
-                onChange={(e) => setRate(e.currentTarget.value)}
-                disabled={!status?.enabled}
-                className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              />
-              <p className="text-[9px] text-txt-muted font-mono">Default: 30. Higher = more CPU.</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
-                Port
-              </label>
-              <input
-                type="number"
-                min="1024"
-                max="65535"
-                step="1"
-                value={port}
-                onChange={(e) => setPort(e.currentTarget.value)}
-                disabled={!status?.enabled}
-                className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              />
-              <p className="text-[9px] text-txt-muted font-mono">Default: 49123.</p>
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
+              Packet Send Rate <span className="normal-case tracking-normal text-txt-muted/60">(per second)</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="120"
+              step="1"
+              value={rate}
+              onChange={(e) => setRate(e.currentTarget.value)}
+              disabled={!status?.enabled}
+              className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+            <p className="text-[9px] text-txt-muted font-mono">Default: 30. Higher values update more frequently but use more CPU.</p>
           </div>
 
           <button
