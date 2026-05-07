@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "rocket-session-stats"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "axum",
  "chrono",
@@ -3104,6 +3104,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tower-http",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -104,11 +104,6 @@ pub fn spawn_rl_client(
 
                         while let Some(raw) = frames.next_frame() {
                             if let Some(normalized) = adapter.normalize_message(&raw) {
-                                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&normalized) {
-                                    if let Some(evt) = v.get("event").and_then(|e| e.as_str()) {
-                                        let _ = log_tx.send(crate::logging::LogEntry::debug("rl_tcp", format!("Event: {evt}")));
-                                    }
-                                }
                                 let _ = cmd_tx.send(TrackerCmd::RawEvent(normalized));
                             }
                         }

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod auto_skip;
 mod logging;
 mod rl_tcp;
 mod server;
@@ -8,14 +9,20 @@ mod settings;
 mod stats_api_adapter;
 mod stats_config;
 
-use std::{collections::VecDeque, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use std::{
+    collections::VecDeque,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 use tauri::{
-    Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
 };
 use tauri_plugin_dialog::DialogExt;
-use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use session::{SessionSnapshot, TrackerCmd};
 
@@ -39,22 +46,40 @@ async fn cmd_get_session(state: tauri::State<'_, RssState>) -> Result<SessionSna
 
 #[tauri::command]
 async fn cmd_reset_session(state: tauri::State<'_, RssState>) -> Result<(), String> {
-    state.cmd_tx.send(TrackerCmd::Reset).map_err(|e| e.to_string())
+    state
+        .cmd_tx
+        .send(TrackerCmd::Reset)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn cmd_reset_history(state: tauri::State<'_, RssState>) -> Result<(), String> {
-    state.cmd_tx.send(TrackerCmd::ResetHistory).map_err(|e| e.to_string())
+    state
+        .cmd_tx
+        .send(TrackerCmd::ResetHistory)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn cmd_set_tracked_player(state: tauri::State<'_, RssState>, id: String) -> Result<(), String> {
-    state.cmd_tx.send(TrackerCmd::SetTrackedPlayer(id)).map_err(|e| e.to_string())
+async fn cmd_set_tracked_player(
+    state: tauri::State<'_, RssState>,
+    id: String,
+) -> Result<(), String> {
+    state
+        .cmd_tx
+        .send(TrackerCmd::SetTrackedPlayer(id))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn cmd_set_allow_dual_pc(state: tauri::State<'_, RssState>, allow: bool) -> Result<(), String> {
-    state.cmd_tx.send(TrackerCmd::SetAllowDualPc(allow)).map_err(|e| e.to_string())
+async fn cmd_set_allow_dual_pc(
+    state: tauri::State<'_, RssState>,
+    allow: bool,
+) -> Result<(), String> {
+    state
+        .cmd_tx
+        .send(TrackerCmd::SetAllowDualPc(allow))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -69,7 +94,11 @@ async fn cmd_get_ips(state: tauri::State<'_, RssState>) -> Result<Vec<String>, S
         .filter(|i| !i.is_loopback() && i.addr.ip().is_ipv4())
         .map(|i| i.addr.ip().to_string())
         .collect();
-    Ok(if ips.is_empty() { vec!["127.0.0.1".into()] } else { ips })
+    Ok(if ips.is_empty() {
+        vec!["127.0.0.1".into()]
+    } else {
+        ips
+    })
 }
 
 #[tauri::command]
@@ -90,7 +119,10 @@ async fn cmd_open_obs_text(state: tauri::State<'_, RssState>) -> Result<(), Stri
         std::fs::create_dir_all(&obs_dir).ok();
         #[cfg(target_os = "windows")]
         {
-            std::process::Command::new("explorer").arg(&obs_dir).spawn().ok();
+            std::process::Command::new("explorer")
+                .arg(&obs_dir)
+                .spawn()
+                .ok();
         }
     })
     .await
@@ -110,7 +142,9 @@ async fn cmd_clear_logs(state: tauri::State<'_, RssState>) -> Result<(), String>
 }
 
 #[tauri::command]
-async fn cmd_get_stats_api_config(path: Option<String>) -> Result<stats_config::ConfigStatus, String> {
+async fn cmd_get_stats_api_config(
+    path: Option<String>,
+) -> Result<stats_config::ConfigStatus, String> {
     tokio::task::spawn_blocking(move || {
         let (ini_path, error) = stats_config::resolve_ini_path(path.as_deref());
         stats_config::build_config_status(ini_path.as_ref(), error)
@@ -156,8 +190,7 @@ async fn cmd_disable_stats_api(path: Option<String>) -> Result<stats_config::Con
         if !config_path.exists() {
             return Err("DefaultStatsAPI.ini not found.".into());
         }
-        let mut contents =
-            std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        let mut contents = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
         contents = stats_config::upsert_ini_value(&contents, "PacketSendRate", "0");
         std::fs::write(&config_path, contents).map_err(|e| e.to_string())?;
         Ok(stats_config::build_config_status(Some(&config_path), None))
@@ -175,7 +208,20 @@ async fn cmd_get_stats_api_port(state: tauri::State<'_, RssState>) -> Result<u16
 }
 
 #[tauri::command]
-async fn cmd_set_stats_api_port(state: tauri::State<'_, RssState>, port: u16) -> Result<(), String> {
+async fn cmd_get_app_settings(
+    state: tauri::State<'_, RssState>,
+) -> Result<settings::AppSettings, String> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || Ok(settings::load(&data_dir)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn cmd_set_stats_api_port(
+    state: tauri::State<'_, RssState>,
+    port: u16,
+) -> Result<(), String> {
     let data_dir = state.data_dir.clone();
     tokio::task::spawn_blocking(move || {
         let mut s = settings::load(&data_dir);
@@ -184,6 +230,60 @@ async fn cmd_set_stats_api_port(state: tauri::State<'_, RssState>, port: u16) ->
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn cmd_set_auto_skip_replays(
+    state: tauri::State<'_, RssState>,
+    enabled: bool,
+    delay_ms: u64,
+) -> Result<settings::AppSettings, String> {
+    let data_dir = state.data_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut s = settings::load(&data_dir);
+        s.auto_skip_replays = enabled;
+        s.auto_skip_delay_ms = delay_ms.clamp(100, 5000);
+        settings::save(&data_dir, &s)?;
+        Ok(s)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn cmd_test_auto_skip_replay(
+    state: tauri::State<'_, RssState>,
+    delay_ms: u64,
+) -> Result<(), String> {
+    let delay = delay_ms.clamp(500, 10000);
+    let logs = state.logs.clone();
+    tauri::async_runtime::spawn(async move {
+        {
+            let mut buf = logs.lock().await;
+            if buf.len() >= server::LOG_BUFFER_MAX {
+                buf.pop_front();
+            }
+            buf.push_back(logging::LogEntry::info(
+                "auto_skip",
+                format!("Auto-skip test queued. Focus Rocket League within {delay}ms."),
+            ));
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+        let entry = match auto_skip::send_replay_skip_key() {
+            Ok(()) => logging::LogEntry::info("auto_skip", "Test replay skip right-click sent"),
+            Err(err) => logging::LogEntry::warn(
+                "auto_skip",
+                format!("Test replay skip right-click failed: {err}"),
+            ),
+        };
+        let mut buf = logs.lock().await;
+        if buf.len() >= server::LOG_BUFFER_MAX {
+            buf.pop_front();
+        }
+        buf.push_back(entry);
+    });
+    Ok(())
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -200,7 +300,9 @@ fn dist_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
     #[cfg(debug_assertions)]
     {
         let _ = app;
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("dist")
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("dist")
     }
     #[cfg(not(debug_assertions))]
     {
@@ -244,6 +346,9 @@ fn main() {
             cmd_disable_stats_api,
             cmd_get_stats_api_port,
             cmd_set_stats_api_port,
+            cmd_get_app_settings,
+            cmd_set_auto_skip_replays,
+            cmd_test_auto_skip_replay,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

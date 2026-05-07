@@ -2,18 +2,31 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     #[serde(default = "default_stats_api_port")]
     pub stats_api_port: u16,
+    #[serde(default)]
+    pub auto_skip_replays: bool,
+    #[serde(default = "default_auto_skip_delay_ms")]
+    pub auto_skip_delay_ms: u64,
 }
 
 fn default_stats_api_port() -> u16 {
     49123
 }
 
+fn default_auto_skip_delay_ms() -> u64 {
+    700
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { stats_api_port: default_stats_api_port() }
+        Self {
+            stats_api_port: default_stats_api_port(),
+            auto_skip_replays: false,
+            auto_skip_delay_ms: default_auto_skip_delay_ms(),
+        }
     }
 }
 

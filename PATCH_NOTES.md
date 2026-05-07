@@ -1,3 +1,14 @@
+## 1.0.5
+
+- Added an experimental replay auto-skip setting for Rocket League goal replays
+- Added a configurable auto-skip delay for replay skip timing tests
+- Fixed auto-skip settings serialization so saved delay values load correctly in the UI
+- Added replay auto-skip diagnostic logs and a delayed test input button
+- Uses Rocket League's default right-click replay skip bind
+- Added replay detection fallback from `UpdateState` replay mode when explicit replay-start events are not emitted
+- Stopped Logs from polling/rendering while hidden and made live log polling opt-in
+- Removed per-event TCP debug logging to prevent gameplay log spam and background UI lag
+
 ## 1.0.4
 
 - Restored the stock widget card background while keeping the full OBS/browser-source canvas transparent

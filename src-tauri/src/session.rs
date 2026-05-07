@@ -5,6 +5,7 @@ use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
     sync::Arc,
+    time::{Duration, Instant},
 };
 use tauri::Emitter;
 use tokio::sync::{broadcast, mpsc, RwLock};
@@ -325,6 +326,8 @@ pub enum TrackerCmd {
 struct Tracker {
     snap: SessionSnapshot,
     history: VecDeque<HistoricalMatch>,
+    last_auto_skip_at: Option<Instant>,
+    replay_active: bool,
 }
 
 impl Tracker {
@@ -355,17 +358,34 @@ impl Tracker {
             text_overlay_elements,
             ..SessionSnapshot::default()
         };
-        Self { snap, history }
+        Self {
+            snap,
+            history,
+            last_auto_skip_at: None,
+            replay_active: false,
+        }
     }
 
     fn sync_history(&mut self) {
         self.snap.match_history = self.history.iter().cloned().collect();
     }
 
-    fn on_update_state(&mut self, data: &Value) {
+    fn on_update_state(&mut self, data: &Value) -> bool {
         self.snap.current_match.active = true;
+        let mut replay_started = false;
 
         if let Some(game) = data.get("game") {
+            let is_replay = game
+                .get("isReplay")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+                || game
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .is_some_and(|status| status == "replay");
+            replay_started = is_replay && !self.replay_active;
+            self.replay_active = is_replay;
+
             self.snap.current_match.time_seconds = game
                 .get("time_seconds")
                 .and_then(Value::as_f64)
@@ -474,6 +494,8 @@ impl Tracker {
                 }
             }
         }
+
+        replay_started
     }
 
     fn on_match_created(&mut self, data: &Value) {
@@ -566,6 +588,7 @@ impl Tracker {
         self.snap.current_match.players.clear();
         self.snap.current_match.context = "unknown".to_string();
         self.snap.current_match.tracked_team = None;
+        self.replay_active = false;
     }
 
     fn on_ball_hit(&mut self, data: &Value) {
@@ -580,6 +603,69 @@ impl Tracker {
             }
         }
     }
+
+    fn should_auto_skip_replay(&mut self) -> bool {
+        let now = Instant::now();
+        if self
+            .last_auto_skip_at
+            .is_some_and(|last| now.duration_since(last) < Duration::from_secs(5))
+        {
+            return false;
+        }
+        self.last_auto_skip_at = Some(now);
+        true
+    }
+}
+
+fn queue_auto_skip_replay(
+    tracker: &mut Tracker,
+    data_dir: &PathBuf,
+    log_tx: &mpsc::UnboundedSender<crate::logging::LogEntry>,
+    source: &str,
+) {
+    let settings = crate::settings::load(data_dir);
+    let _ = log_tx.send(crate::logging::LogEntry::info(
+        "auto_skip",
+        format!("Replay start detected from {source}"),
+    ));
+    if !settings.auto_skip_replays {
+        let _ = log_tx.send(crate::logging::LogEntry::debug(
+            "auto_skip",
+            "Replay auto-skip is disabled",
+        ));
+        return;
+    }
+    if !tracker.should_auto_skip_replay() {
+        let _ = log_tx.send(crate::logging::LogEntry::debug(
+            "auto_skip",
+            "Replay auto-skip suppressed by cooldown",
+        ));
+        return;
+    }
+
+    let delay = settings.auto_skip_delay_ms.clamp(100, 5000);
+    let log = log_tx.clone();
+    let _ = log_tx.send(crate::logging::LogEntry::info(
+        "auto_skip",
+        format!("Replay skip queued after {delay}ms"),
+    ));
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(delay)).await;
+        match crate::auto_skip::send_replay_skip_key() {
+            Ok(()) => {
+                let _ = log.send(crate::logging::LogEntry::info(
+                    "auto_skip",
+                    format!("Sent replay skip right-click after {delay}ms"),
+                ));
+            }
+            Err(err) => {
+                let _ = log.send(crate::logging::LogEntry::warn(
+                    "auto_skip",
+                    format!("Replay skip right-click failed: {err}"),
+                ));
+            }
+        }
+    });
 }
 
 // ── Public spawn ──────────────────────────────────────────────────────────────
@@ -711,7 +797,16 @@ pub fn spawn_session_tracker(
                     tracker.snap.last_event_at = Some(iso_now());
 
                     match event_name.as_str() {
-                        "game:update_state" => tracker.on_update_state(&data),
+                        "game:update_state" => {
+                            if tracker.on_update_state(&data) {
+                                queue_auto_skip_replay(
+                                    &mut tracker,
+                                    &data_dir,
+                                    &log_tx,
+                                    "update_state replay flag",
+                                );
+                            }
+                        }
                         "game:match_created" | "game:initialized" => {
                             let _ = log_tx.send(crate::logging::LogEntry::info(
                                 "session",
@@ -732,6 +827,14 @@ pub fn spawn_session_tracker(
                             needs_persist = true;
                         }
                         "game:ball_hit" => tracker.on_ball_hit(&data),
+                        "game:replay_start" => {
+                            queue_auto_skip_replay(
+                                &mut tracker,
+                                &data_dir,
+                                &log_tx,
+                                "replay_start event",
+                            );
+                        }
                         _ => {}
                     }
                 }

@@ -84,6 +84,12 @@ export type OverlaySettings = {
   opacity: number;
 };
 
+export type AppSettings = {
+  statsApiPort: number;
+  autoSkipReplays: boolean;
+  autoSkipDelayMs: number;
+};
+
 export type OverlayMode = "stock" | "textCanvas";
 
 export type TextStatKey =

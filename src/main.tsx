@@ -107,7 +107,7 @@ function AppContent() {
       <div className={currentView === "session"  ? "h-full" : "hidden"}><SessionView  snapshot={snapshot} /></div>
       <div className={currentView === "history"  ? "h-full" : "hidden"}><HistoryView  snapshot={snapshot} /></div>
       <div className={currentView === "overlay"  ? "h-full" : "hidden"}><OBSView      snapshot={snapshot} /></div>
-      <div className={currentView === "logs"     ? "h-full" : "hidden"}><LogsView /></div>
+      {currentView === "logs" && <div className="h-full"><LogsView /></div>}
       <div className={currentView === "settings" ? "h-full" : "hidden"}><SettingsView /></div>
       <div className={currentView === "about"    ? "h-full" : "hidden"}><AboutView /></div>
     </Layout>

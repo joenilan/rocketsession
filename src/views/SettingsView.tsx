@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ViewShell } from "../components/ViewShell";
 import { useTheme, type Theme } from "../context/ThemeContext";
 import { getJson, API_BASE } from "../lib/api";
-import type { StatsApiConfigStatus } from "../types";
+import type { AppSettings, StatsApiConfigStatus } from "../types";
 
 const THEMES: { id: Theme; label: string; color: string }[] = [
   { id: "modern",    label: "Modern",    color: "rgb(145,70,255)"  },
@@ -190,6 +190,151 @@ function StatsApiSettings() {
   );
 }
 
+function AutoSkipSettings() {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [enabled, setEnabled] = useState(false);
+  const [delay, setDelay] = useState("700");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const next = await invoke<AppSettings>("cmd_get_app_settings");
+      setSettings(next);
+      setEnabled(next.autoSkipReplays);
+      setDelay(String(next.autoSkipDelayMs));
+    } catch {
+      // Tauri settings are unavailable in pure browser mode.
+    }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function save(nextEnabled = enabled) {
+    const delayMs = parseInt(delay, 10);
+    if (!Number.isFinite(delayMs) || delayMs < 100 || delayMs > 5000) {
+      setFeedback({ ok: false, message: "Delay must be between 100 and 5000 ms." });
+      return;
+    }
+
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const next = await invoke<AppSettings>("cmd_set_auto_skip_replays", {
+        enabled: nextEnabled,
+        delayMs,
+      });
+      setSettings(next);
+      setEnabled(next.autoSkipReplays);
+      setDelay(String(next.autoSkipDelayMs));
+      setFeedback({
+        ok: true,
+        message: next.autoSkipReplays
+          ? "Experimental replay auto-skip enabled. It only fires when Rocket League is the active window."
+          : "Replay auto-skip disabled.",
+      });
+    } catch (err) {
+      setFeedback({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testSkipInput() {
+    setTesting(true);
+    setFeedback(null);
+    try {
+      await invoke("cmd_test_auto_skip_replay", { delayMs: 3000 });
+      setFeedback({ ok: true, message: "Test queued. Focus Rocket League within 3 seconds." });
+    } catch (err) {
+      setFeedback({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (!settings) {
+    return (
+      <div className="bg-surface-card/60 border border-txt-primary/10 rounded-xl p-4 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Replay Auto-Skip</p>
+        <p className="mt-2 text-xs text-txt-muted font-mono">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-surface-card/60 border border-txt-primary/10 rounded-xl p-4 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted">Replay Auto-Skip</p>
+          <p className="mt-1 text-xs text-txt-muted">
+            Experimental. Sends a right-click after Rocket League reports a goal replay start.
+          </p>
+        </div>
+        <button
+          disabled={saving}
+          onClick={() => {
+            const next = !enabled;
+            setEnabled(next);
+            void save(next);
+          }}
+          className={twMerge(
+            "px-4 py-2 rounded-lg border text-xs font-mono font-bold transition-all disabled:opacity-40",
+            enabled
+              ? "border-green-500/30 bg-green-500/10 text-green-300 hover:bg-green-500/20"
+              : "border-txt-primary/15 bg-txt-primary/5 text-txt-secondary hover:text-txt-primary hover:border-txt-primary/30",
+          )}
+        >
+          {enabled ? "Enabled" : "Disabled"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 items-end">
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted block">
+            Skip Delay <span className="normal-case tracking-normal text-txt-muted/60">(ms)</span>
+          </label>
+          <input
+            type="number"
+            min="100"
+            max="5000"
+            step="50"
+            value={delay}
+            onChange={(e) => setDelay(e.currentTarget.value)}
+            className="w-full bg-surface-base/60 border border-txt-primary/15 rounded-lg px-3 py-2 text-sm font-mono text-txt-primary focus:outline-none focus:border-accent/50 transition-all"
+          />
+          <p className="text-[9px] text-txt-muted font-mono">Default: 700. Increase if the skip input fires too early.</p>
+        </div>
+        <button
+          disabled={saving}
+          onClick={() => void save()}
+          className="px-4 py-2 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-mono font-bold hover:bg-accent/20 transition-all disabled:opacity-40"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          disabled={testing}
+          onClick={() => void testSkipInput()}
+          className="px-4 py-2 rounded-lg border border-txt-primary/15 bg-txt-primary/5 text-txt-secondary text-xs font-mono font-bold hover:text-txt-primary hover:border-txt-primary/30 transition-all disabled:opacity-40"
+        >
+          {testing ? "Queued…" : "Test"}
+        </button>
+      </div>
+
+      <p className="text-[10px] text-yellow-300/90 font-mono">
+        Uses Rocket League's default keyboard/mouse replay skip bind: right-click. Controller skip is A/X.
+      </p>
+
+      {feedback && (
+        <p className={twMerge("text-xs font-mono", feedback.ok ? "text-green-400" : "text-red-400")}>
+          {feedback.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SettingsView() {
   return (
     <ViewShell
@@ -199,6 +344,7 @@ export function SettingsView() {
     >
       <ThemeSection />
       <StatsApiSettings />
+      <AutoSkipSettings />
     </ViewShell>
   );
 }

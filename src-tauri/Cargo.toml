@@ -1,6 +1,6 @@
 [package]
 name = "rocket-session-stats"
-version = "1.0.4"
+version = "1.0.5"
 edition = "2021"
 
 [build-dependencies]
@@ -22,3 +22,4 @@ tower-http = { version = "0.6", features = ["cors"] }
 futures-util = "0.3"
 get_if_addrs = "0.5"
 chrono = "0.4"
+windows-sys = { version = "0.61.2", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
