@@ -10,8 +10,8 @@ const version = readFileSync(resolve(appRoot, 'VERSION'), 'utf8').trim()
 const patchNotesSource = readFileSync(resolve(appRoot, 'PATCH_NOTES.md'), 'utf8')
 
 const env = {
-  ...loadEnvFile(envFile),
   ...process.env,
+  ...loadEnvFile(envFile),
 }
 
 const host = requiredEnv(env, 'SSH_HOST')
