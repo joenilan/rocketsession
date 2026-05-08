@@ -41,15 +41,15 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed }: NavItemProps
 function SidebarUpdateStatus({ collapsed }: { collapsed: boolean }) {
   const { status, version, error, checkForUpdates, installUpdate } = useUpdateStatus();
 
-  if (collapsed) {
-    const title =
-      status === "available" ? `Update available: v${version}` :
-      status === "checking" ? "Checking for updates" :
-      status === "downloading" ? "Installing update" :
-      status === "error" ? (error ?? "Update check failed") :
-      status === "up-to-date" ? "Up to date" :
-      "Check for updates";
+  const title =
+    status === "available" ? `Update available: v${version}. Click to install.` :
+    status === "checking" ? "Checking for updates" :
+    status === "downloading" ? "Installing update" :
+    status === "error" ? (error ?? "Update check failed") :
+    status === "up-to-date" ? "Up to date" :
+    "Check for updates";
 
+  if (collapsed) {
     return (
       <button
         type="button"
@@ -76,57 +76,47 @@ function SidebarUpdateStatus({ collapsed }: { collapsed: boolean }) {
     );
   }
 
-  const label =
-    status === "available" ? `v${version} available` :
-    status === "checking" ? "Checking updates" :
-    status === "downloading" ? "Installing update" :
-    status === "error" ? "Update failed" :
-    status === "up-to-date" ? "Up to date" :
-    "Check updates";
-
-  const icon =
-    status === "available" ? <Download size={11} /> :
-    status === "up-to-date" ? <CheckCircle size={11} /> :
-    status === "error" ? <AlertCircle size={11} /> :
-    <RefreshCw size={11} className={status === "checking" || status === "downloading" ? "animate-spin" : undefined} />;
-
   return (
-    <div
+    <span
       className={twMerge(
-        "mt-2 rounded-lg border px-2 py-1.5 animate-in fade-in duration-200",
-        status === "available" && "border-accent/35 bg-accent/10 text-accent",
-        status === "up-to-date" && "border-green-500/20 bg-green-500/5 text-green-400",
-        status === "error" && "border-red-500/20 bg-red-500/5 text-red-400",
-        (status === "idle" || status === "checking" || status === "downloading") && "border-txt-primary/10 bg-txt-primary/5 text-txt-muted",
+        "mt-1 flex items-center gap-1.5 text-[9px] font-mono transition-colors",
+        status === "available" && "text-amber-300",
+        status === "up-to-date" && "text-green-400",
+        status === "error" && "text-red-400",
+        (status === "idle" || status === "checking" || status === "downloading") && "text-txt-muted/60",
       )}
-      title={status === "error" ? error ?? undefined : undefined}
+      title={title}
     >
-      <div className="flex items-center justify-between gap-1.5">
-        <button
-          type="button"
-          onClick={() => {
-            if (status === "available") void installUpdate();
-          }}
-          disabled={status !== "available"}
-          className={twMerge(
-            "min-w-0 flex flex-1 items-center gap-1.5 text-left text-[9px] font-mono font-semibold uppercase tracking-wide transition-colors",
-            status === "available" ? "hover:text-txt-primary" : "cursor-default",
-          )}
-        >
-          <span className="shrink-0">{icon}</span>
-          <span className="truncate">{label}</span>
-        </button>
-        <button
-          type="button"
-          title="Check for updates"
-          onClick={() => void checkForUpdates()}
-          disabled={status === "checking" || status === "downloading"}
-          className="shrink-0 text-current opacity-60 hover:opacity-100 disabled:cursor-wait transition-opacity"
-        >
-          <RefreshCw size={10} className={status === "checking" ? "animate-spin" : undefined} />
-        </button>
-      </div>
-    </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (status === "available") void installUpdate();
+        }}
+        disabled={status !== "available"}
+        className={twMerge(
+          "leading-none transition-colors",
+          status === "available" ? "hover:text-txt-primary cursor-pointer" : "cursor-default",
+        )}
+      >
+        v{pkg.version}
+        {status === "available" && version ? ` -> ${version}` : ""}
+      </button>
+      <button
+        type="button"
+        title={status === "available" ? "Install update" : "Check for updates"}
+        onClick={() => {
+          if (status === "available") void installUpdate();
+          else void checkForUpdates();
+        }}
+        disabled={status === "checking" || status === "downloading"}
+        className="shrink-0 opacity-70 hover:opacity-100 disabled:cursor-wait transition-opacity"
+      >
+        {status === "available" ? <Download size={10} /> :
+          status === "up-to-date" ? <CheckCircle size={10} /> :
+          status === "error" ? <AlertCircle size={10} /> :
+          <RefreshCw size={10} className={status === "checking" || status === "downloading" ? "animate-spin" : undefined} />}
+      </button>
+    </span>
   );
 }
 
@@ -170,9 +160,6 @@ export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
             </h1>
             <span className="text-[9px] text-accent font-mono font-medium opacity-80 tracking-wider mt-0.5">
               Stats
-            </span>
-            <span className="text-[9px] font-mono text-txt-muted opacity-40 mt-1">
-              v{pkg.version}
             </span>
             <SidebarUpdateStatus collapsed={false} />
           </div>
