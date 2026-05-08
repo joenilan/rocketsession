@@ -3,6 +3,7 @@ import { Info, Globe, Coffee, ExternalLink, Sparkles, RefreshCw, CheckCircle, Do
 import { Rocket } from "lucide-react";
 import { ViewShell } from "../components/ViewShell";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
@@ -51,6 +52,14 @@ export function AboutView() {
     } catch (err) {
       setUpdateError(String(err));
       setUpdateStatus("error");
+    }
+  }
+
+  async function openExternalUrl(url: string) {
+    try {
+      await openUrl(url);
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -174,11 +183,10 @@ export function AboutView() {
         <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-txt-muted mb-3">Connect</p>
         <div className="space-y-1.5">
           {LINKS.map(({ label, href, icon: Icon }) => (
-            <a
+            <button
               key={href}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
+              onClick={() => void openExternalUrl(href)}
               className="flex items-center justify-between px-3 py-2 rounded-lg border border-txt-primary/10 bg-txt-primary/5 text-xs text-txt-secondary hover:text-txt-primary hover:border-txt-primary/30 transition-all"
             >
               <span className="flex items-center gap-2">
@@ -186,7 +194,7 @@ export function AboutView() {
                 {label}
               </span>
               <ExternalLink size={11} className="text-txt-muted" />
-            </a>
+            </button>
           ))}
         </div>
       </div>

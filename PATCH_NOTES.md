@@ -1,3 +1,7 @@
+## 1.0.6
+
+- Fixed About page Connect links so livestreaming.tools and Buy Me a Coffee open in the system browser
+
 ## 1.0.5
 
 - Added an experimental replay auto-skip setting for Rocket League goal replays

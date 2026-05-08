@@ -6,6 +6,7 @@
       "name": "rocket-session-stats",
       "dependencies": {
         "@tauri-apps/api": "^2.11.0",
+        "@tauri-apps/plugin-opener": "^2.5.4",
         "@tauri-apps/plugin-process": "^2.3.1",
         "@tauri-apps/plugin-updater": "^2.10.1",
         "@vitejs/plugin-react": "^4.6.0",
@@ -224,6 +225,8 @@
     "@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.11.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-OFV+s3MLZnd75zl0ZAFU5riMpGK4waUEA8ZDuijDsnkU0btz/gHhqh5jVlOn8thyvgdtT3Xyoxqo099MMifH3g=="],
 
     "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.11.0", "", { "os": "win32", "cpu": "x64" }, "sha512-AeDTWBd2cOZ6TX133BWsoo+LutG9o0JRcgjMsIfLE13ZugpgCMv/2dJbUiBGeRvbPOGin5A3aYmsArPVV6ZSHQ=="],
+
+    "@tauri-apps/plugin-opener": ["@tauri-apps/plugin-opener@2.5.4", "", { "dependencies": { "@tauri-apps/api": "^2.11.0" } }, "sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ=="],
 
     "@tauri-apps/plugin-process": ["@tauri-apps/plugin-process@2.3.1", "", { "dependencies": { "@tauri-apps/api": "^2.8.0" } }, "sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA=="],
 
