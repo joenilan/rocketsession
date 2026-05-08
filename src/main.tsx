@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./context/ThemeContext";
+import { UpdateProvider } from "./context/UpdateContext";
 import { Layout, type View } from "./components/Layout";
 import { SessionView } from "./views/SessionView";
 import { OBSView } from "./views/OBSView";
@@ -116,7 +117,9 @@ function AppContent() {
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
-    <AppContent />
+    <UpdateProvider>
+      <AppContent />
+    </UpdateProvider>
   </ThemeProvider>,
 );
 

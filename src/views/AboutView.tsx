@@ -4,56 +4,26 @@ import { Rocket } from "lucide-react";
 import { ViewShell } from "../components/ViewShell";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { useUpdateStatus } from "../context/UpdateContext";
 
 const LINKS = [
   { label: "livestreaming.tools", href: "https://livestreaming.tools", icon: Globe },
   { label: "Buy Me a Coffee",     href: "https://buymeacoffee.com/crntly", icon: Coffee },
 ];
 
-type UpdateStatus = "idle" | "checking" | "up-to-date" | "available" | "downloading" | "error";
-
 export function AboutView() {
   const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
-  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [updateObject, setUpdateObject] = useState<Awaited<ReturnType<typeof check>> | null>(null);
+  const {
+    status: updateStatus,
+    version: updateVersion,
+    error: updateError,
+    checkForUpdates,
+    installUpdate,
+  } = useUpdateStatus();
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
   }, []);
-
-  async function checkForUpdates() {
-    setUpdateStatus("checking");
-    setUpdateError(null);
-    try {
-      const update = await check();
-      if (update?.available) {
-        setUpdateObject(update);
-        setUpdateVersion(update.version);
-        setUpdateStatus("available");
-      } else {
-        setUpdateStatus("up-to-date");
-      }
-    } catch (err) {
-      setUpdateError(String(err));
-      setUpdateStatus("error");
-    }
-  }
-
-  async function installUpdate() {
-    if (!updateObject) return;
-    setUpdateStatus("downloading");
-    try {
-      await updateObject.downloadAndInstall();
-      await relaunch();
-    } catch (err) {
-      setUpdateError(String(err));
-      setUpdateStatus("error");
-    }
-  }
 
   async function openExternalUrl(url: string) {
     try {
