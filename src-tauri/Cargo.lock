@@ -3123,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "rocket-session-stats"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "axum",
  "chrono",

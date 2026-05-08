@@ -1,3 +1,9 @@
+## 1.0.8
+
+- Simplified the sidebar updater UI so the version line itself shows update state
+- Removed the extra update badge under the version
+- Kept refresh/install action directly beside the version number
+
 ## 1.0.7
 
 - Added compact update status under the sidebar logo/version
