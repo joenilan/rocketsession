@@ -1,3 +1,10 @@
+## 1.0.7
+
+- Added compact update status under the sidebar logo/version
+- Added sidebar refresh and install actions so updates are visible without opening About
+- Centralized updater state so the sidebar and About page stay in sync
+- Added silent startup, focus, and periodic background update checks
+
 ## 1.0.6
 
 - Fixed About page Connect links so livestreaming.tools and Buy Me a Coffee open in the system browser
